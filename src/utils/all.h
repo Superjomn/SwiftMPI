@@ -17,4 +17,7 @@
 #include "DaemonThread.h"
 #include "file.h"
 #include "vec1.h"
-//#include "random.h"
+#include "mpi.h"
+#include "localenv.h"
+#include "AsynExec.h"
+#include "BasicChannel.h"
