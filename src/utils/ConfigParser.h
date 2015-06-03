@@ -12,15 +12,15 @@
 #include "string.h"
 
 namespace swift_snails {
-/*
+/**
  * a simple config parser
  *
  * support syntax:
  *
- * import ../common.conf
- * key: value
- * # comment
- * key: value
+ *   import ../common.conf
+ *   key: value
+ *   # comment
+ *   key: value
  */
 class ConfigParser : VirtualObject {
 
@@ -62,29 +62,25 @@ public:
     }
 
     void clear() {
-        _dic.clear();
+        _session.clear();
     }
-    /*
-    void register_config(const std::string &key, const std::string &value = "") {
-        CHECK(!key.empty());
-        CHECK(_dic.count(key) == 0) << "multi key:\t" << key << "is registered";
-        _dic.insert({std::move(key), Item(value)});
-    }
-    */
-
     // to_int32()
     // to_string()
     // to_bool()
-    const Item& get_config(const std::string &key) {
-        auto p = _dic.find(key);
-        CHECK(p != _dic.end()) << "no such key:\t" << key;
+    const Item& get_config(const std::string &session, const std::string &key) {
+        auto &s = _session[session];
+        auto p = s.find(key);
+        CHECK(p != s.end()) << "no such key:\t" << key;
         return p->second;
     }
 
     friend std::ostream& operator<< (std::ostream& os, const ConfigParser &other) {
         os << "conf:" << std::endl;
-        for(auto kv : other._dic) {
-            os << kv.first << "\t" << kv.second.value << std::endl;
+        for(auto& session : other._session) {
+            os << "\tsession:\t" << session.first << std::endl;
+            for(auto kv : session.second) {
+                os << "\t\t" << kv.first << "\t" << kv.second.value << std::endl;
+            }
         }
         os << "end conf" << std::endl;
         return os;
@@ -109,6 +105,14 @@ private:
                 parse_conf(kv.second);
                 continue;
             }
+            // parse session
+            if(line[0] == '[' && line[line.length()-1] == ']') {
+                cur_session = line.substr(1, line.size() - 2);
+                LOG(INFO) << "parsing session" << cur_session;
+                trim(cur_session);
+                CHECK(! cur_session.empty());
+                continue;
+            }
             key_value_t kv = std::move(key_value_split(line, ":"));
             set_config(trim(kv.first), trim(kv.second));
         }
@@ -116,16 +120,16 @@ private:
     }
 
     void set_config(const std::string &key, const std::string &value) {
-        /*
-        auto p = _dic.find(key);
-        CHECK(p != _dic.end()) << "read unregistered key:\t" << key;
-        p->second.value = value;
-        */
-        _dic.insert({key, Item(value)});
+        if(_session.count(cur_session) == 0) {
+            _session.emplace(cur_session, 
+                std::map<std::string, Item>());
+        }
+        _session[cur_session].insert({key, Item(value)});
     }
 
-    std::map<std::string, Item> _dic;
+    std::map<std::string, std::map<std::string, Item>> _session;
     std::string _conf_path;
+    std::string cur_session;
 };  // end class ConfigParser
 
 

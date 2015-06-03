@@ -18,15 +18,17 @@ std::string& trim(std::string &ss) {
     return ss;
 }
 
-/*
+/**
  * split string to vector
  *
  * example:
- *  vector<string> cols = split("hello world@bb", " @");
+ *
+ *    vector<string> cols = split("hello world@bb", " @");
  *
  * Attention: 
- *  use first_not_of
- *  the real delim is either char in a string
+ *
+ *    use first_not_of
+ *    the real delim is either char in a string
  */
 std::vector<std::string> split(const std::string &s, const std::string &delim) {
     std::vector<std::string> cols;
