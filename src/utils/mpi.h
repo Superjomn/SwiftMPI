@@ -1,6 +1,5 @@
-#include <mpi.h>
-#include "common.h"
 #pragma once
+#include "common.h"
 #include "localenv.h"
 
 namespace swift_snails {
@@ -20,6 +19,10 @@ public:
         CHECK((int)ip.length() < IP_WIDTH);
         std::strcpy(&_ip_table[IP_WIDTH * _rank], ip.c_str());
         CHECK(0 == MPI_Allgather(MPI_IN_PLACE, 0, MPI_BYTE, &_ip_table[0], IP_WIDTH, MPI_BYTE, MPI_COMM_WORLD));
+    }
+
+    ~GlobalMPI() {
+        MPI_Finalize();
     }
 
     int rank() {

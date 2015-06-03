@@ -37,7 +37,10 @@ public:
         data_queue.pop();
         return true;
     }
-
+    /**
+     * \fn std::shared_ptr<T> wait_and_pop() 
+     *  \brief block current thread if no data is ready
+     */
     std::shared_ptr<T> wait_and_pop() {
         std::unique_lock<std::mutex> lk(mut);
         data_cond.wait(lk, [this] {return !data_queue.empty();});
