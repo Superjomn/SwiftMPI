@@ -29,7 +29,9 @@ public:
         other.set_buffer(nullptr);  // to avoid free the common memory
         other.clear();  // clear all the status flags
     }
-
+    /**
+     * \brief copy from an existing buffer
+     */
     void set(char* buffer, size_t size) {
         CHECK(size > 0);
         reserve(size);
@@ -49,16 +51,6 @@ public:
         }
         return *this;
     }
-    /*
-    BasicBuffer& operator=(Message&& m) {
-    	CHECK(m.zmg());
-    	free();
-    	_buffer = &m.zmg();
-    	_cursor = buffer();
-    	_end = buffer() + m.size();
-    	return *this;
-    }
-    */
     ~BasicBuffer() {
         //LOG(INFO) << "Buffer deconstruct!";
         free();

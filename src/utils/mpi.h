@@ -29,7 +29,7 @@ public:
     int size() {
         return _size;
     }
-
+    
     const char* ip() {
         return &_ip_table[rank() * IP_WIDTH];
     }
@@ -49,7 +49,10 @@ private:
 
 };  // end GlobalMPI
 
-
+/**
+ * \fn inline GlobalMPI& global_mpi()
+ * \warning should call MPI_Init first 
+ */
 inline GlobalMPI& global_mpi() {
     static GlobalMPI mpi;
     return mpi;
