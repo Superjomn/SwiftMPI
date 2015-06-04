@@ -2,8 +2,7 @@ CXX=mpicxx
 CC=gcc
 BIN=./bin
 
-CXXFLAGS= -g -std=c++11 -pthread -lpthread -Wall -lgtest -lgtest_main
-
+CXXFLAGS= -g -std=c++11 -pthread -lpthread -Wall -lgtest -lgtest_main -lzmq -lglog  -lz
 LOCAL_ROOT=../../third/local
 GTEST_HOME=$(LOCAL_ROOT)/gtest
 
@@ -14,7 +13,7 @@ THIRD_INCPATH=-I$(LOCAL_ROOT)/glog/include \
 	-I/usr/include/pthread \
 	-I$(GTEST_HOME)/include
 
-THIRD_LIB=$(LOCAL_ROOT)/glog/lib/libglog.a  $(LOCAL_ROOT)/zeromq/lib/libzmq.a 
+THIRD_LIB=-L$(LOCAL_ROOT)/glog/lib/  -L$(LOCAL_ROOT)/zeromq/lib/ -L$(LOCAL_ROOT)/zlib/lib/
 
 test :  main.cpp 
 	mkdir -p $(BIN)

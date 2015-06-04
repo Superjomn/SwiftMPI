@@ -1,6 +1,5 @@
 #pragma once
 #include "../utils/all.h"
-#include "common.h"
 
 namespace swift_snails {
 
@@ -11,7 +10,7 @@ typedef std::function<void(int shared_id, BinaryBuffer& ibb, BinaryBuffer& obb)>
  */
 struct BasicMetaMessage {
     int message_class = 0; // server-side function
-    Addr addr;    // to register new worker nodes
+    //Addr addr;    // to register new worker nodes
 };
 
 /**
@@ -27,14 +26,14 @@ struct MetaMessage : public BasicMetaMessage {
     	message_class = other.message_class;
     	client_id = other.client_id;
     	message_id = other.message_id;
-        addr = other.addr;
+        //addr = other.addr;
     }
 
     MetaMessage& operator= (const MetaMessage &other) {
     	message_class = other.message_class;
     	client_id = other.client_id;
     	message_id = other.message_id;
-        addr = other.addr;
+        //addr = other.addr;
     	return *this;
     }
 };

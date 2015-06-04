@@ -8,8 +8,10 @@
 #ifndef SwiftSnails_transfer_transfer_h_
 #define SwiftSnails_transfer_transfer_h_
 #include "../utils/all.h"
-#include "../Message.h"
+#include "./Message.h"
 #include "Listener.h"
+#include "ServerWorkerRoute.h"
+
 namespace swift_snails {
 
 /**
@@ -71,7 +73,9 @@ public:
     typedef Request::response_call_back_t   msgrsp_handler_t;
 
 
-    explicit Transfer() {
+    explicit Transfer() : 
+        _route( global_route())
+    {
         set_zmq_ctx(_route.zmq_ctx());
     }
     // init later
@@ -272,7 +276,7 @@ public:
 
 private:
     
-    Route _route;
+    Route &_route;
 
     std::atomic<index_t> _msg_id_counter{0};
     std::shared_ptr<AsynExec::channel_t> _async_channel;
@@ -285,32 +289,6 @@ private:
     int _client_id = -2;
 
 };  // end class Transfer
-
-
-
-template<typename Route>
-Transfer<Route> &global_transfer() {
-	static Transfer<Route> transfer;
-	static std::once_flag flag;
-	std::call_once(flag,
-		[]{
-            LOG(WARNING) << "init transfer ...";
-            std::string listen_addr = global_config().get_config("listen_addr").to_string();
-            // TODO read from config file
-            int async_thread_num = global_config().get_config("async_exec_num").to_int32();
-            int service_thread_num = global_config().get_config("listen_thread_num").to_int32();
-
-            if(!listen_addr.empty()) {
-                transfer.listen(listen_addr);
-            } else {
-                transfer.listen();
-            }
-            transfer.init_async_channel(async_thread_num);
-            transfer.set_thread_num(service_thread_num);
-            transfer.service_start();
-		});
-    return transfer;
-}
 
 
 };  // end namespace swift_snails

@@ -32,7 +32,8 @@
 #include "glog/logging.h"
 #include "glog/raw_logging.h"
 #include "zmq.h"
-#include "Eigen/Dense"
+
+#include "string.h"
 
 namespace swift_snails {
 // common types
@@ -71,10 +72,68 @@ inline int guarded_pclose(FILE* stream) {
     return pclose(stream);
 }
 
+template<class FUNC, class... ARGS>
+auto ignore_signal_call(FUNC func, ARGS&&... args) 
+    -> typename std::result_of<FUNC(ARGS...)>::type {
+    for (;;) {
+        auto err = func(args...);
+        if (err < 0 && errno == EINTR) {
+            LOG(INFO) << "Signal is caught. Ignored.";
+            continue;
+        }
+        return err;
+    }
+}
 
-//typedef Eigen::Matrix<double, Eigen::Dynamic, 1> Vec;
+inline void zmq_bind_random_port(const std::string& ip, void* socket, std::string& addr, int& port) {
+    for(;;) {
+        addr = "";
+        port = 1024 + rand() % (65536 - 1024);
+        format_string(addr, "tcp://%s:%d", ip.c_str(), port);
+        // ATTENTION: fix the wied memory leak
+        // add the LOG valhind detect no memory leak, else ...
+        LOG(WARNING) << "try addr: " << addr;
+        int res = 0;
+        PCHECK((res = zmq_bind(socket, addr.c_str()), 
+                res == 0 || errno == EADDRINUSE));  // port is already in use
+        if(res == 0) break;
+    }
+}
 
+inline void zmq_send_push_once(void* zmq_ctx, zmq_msg_t* zmg, const std::string& addr) {
+    void* sender = nullptr;
+    PCHECK(sender = zmq_socket(zmq_ctx, ZMQ_PUSH));
+    PCHECK(0 == ignore_signal_call(zmq_connect, sender, addr.c_str()));
+    PCHECK(ignore_signal_call(zmq_msg_send, zmg, sender, 0) >= 0);
+    PCHECK(0 == zmq_close(sender));
+}
+
+// ensure thread to exit normally
+class thread_guard {
+    std::thread& _t;
+public:
+    explicit thread_guard(std::thread& t) :
+        _t(t)
+    { }
+    explicit thread_guard(std::thread&& t) : 
+        _t(t)
+    { }
+    explicit thread_guard(thread_guard&& other) :
+        _t(other._t)
+    { }
+    thread_guard(thread_guard const&) = delete;
+    thread_guard& operator=(thread_guard const&) = delete;
+
+    void join() {
+        CHECK(_t.joinable());
+        _t.join();
+    }
+    ~thread_guard() {
+        if(_t.joinable()) _t.join();
+    }
 };
 
+
+};
 #endif
 

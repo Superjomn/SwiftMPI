@@ -10,7 +10,7 @@
 #include "../utils/all.h"
 namespace swift_snails {
 
-/*
+/**
  * a controller of routes
  */
 class BaseRoute : public VirtualObject {
@@ -26,8 +26,10 @@ public:
     void* zmq_ctx() {
         return _zmq_ctx;
     }
-    // TODO change node at once 
-    // Attention: not thread-safe
+    /** 
+     * **TODO** change node at once 
+     * \warning: not thread-safe
+     */
     void register_node(int id, std::string &&addr) {
         //std::lock_guard<std::mutex> lock(_write_mut);
         CHECK(_send_addrs.count(id) == 0) << "id exists!";
@@ -38,8 +40,9 @@ public:
         connect(id);
     }
     
-    // Attention: not thread-safe
-    // should use rwlock(Read-Write lock)
+    /** \warning not thread-safe
+     * should use rwlock(Read-Write lock)
+     */
     void delete_node(int id) {
         //std::lock_guard<std::mutex> lock(_write_mut);
         LOG(WARNING) << "delete node " << id << " " << _send_addrs[id];
