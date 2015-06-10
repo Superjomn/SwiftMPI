@@ -19,8 +19,22 @@ public:
         init_route();
         init_hashfrag();
     }
-
+    /**
+     * @brief cluster finish working
+     *
+     * @warning should be called after worker's work is finished
+     *
+     * will:
+     *
+     * * tell all Servers to output parameter and exit
+     * * tell all Workers to exit
+     */
     void finalize() {
+        global_mpi().barrier();
+        // TODO tell workers to exit
+        // TODO tell server to output parameters
+        // TODO tell server to exit
+        // TODO terminate cluster
     }
 
 protected:

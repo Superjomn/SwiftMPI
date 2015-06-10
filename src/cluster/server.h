@@ -28,8 +28,28 @@ public:
     typedef PushAccessMethod push_access_t;
     typedef PullAccessMethod pull_access_t;
 
-    ClusterServer();
-    Transfer<ServerWorkerRoute>& transfer();
+    ClusterServer():
+        _sparsetable(global_sparse_table<key_t, param_t>())
+    {
+        init_transfer();
+        init_pull_method();
+        init_push_method();
+    }
+    /**
+     * @brief called when worker finish working
+     */
+    void finalize() {
+        RAW_LOG(WARNING, "server output parameters");
+        _sparsetable.output();
+        RAW_LOG(WARNING, "###################################");
+        RAW_LOG(WARNING, "     Server terminate normally");
+        RAW_LOG(WARNING, "###################################");
+    }
+
+    Transfer<ServerWorkerRoute>& transfer() {
+        return _transfer;
+    }
+
 protected:
     void init_transfer();
     /**
@@ -50,23 +70,6 @@ private:
 
 template<class ServerType> inline ServerType& global_server();
 
-
-template<typename Key, typename Param, typename PullVal, typename Grad, typename PullAccessMethod, typename PushAccessMethod>
-ClusterServer<Key, Param, PullVal, Grad, PullAccessMethod, PushAccessMethod>::\
-ClusterServer() : 
-    _sparsetable(global_sparse_table<key_t, param_t>())
-{
-    init_transfer();
-    init_pull_method();
-    init_push_method();
-}
-
-template<typename Key, typename Param, typename PullVal, typename Grad, typename PullAccessMethod, typename PushAccessMethod>
-Transfer<ServerWorkerRoute>& \
-ClusterServer<Key, Param, PullVal, Grad, PullAccessMethod, PushAccessMethod>::\
-transfer() {
-    return _transfer;
-}
 
 template<typename Key, typename Param, typename PullVal, typename Grad, typename PullAccessMethod, typename PushAccessMethod>
 void \
@@ -90,6 +93,7 @@ template<typename Key, typename Param, typename PullVal, typename Grad, typename
 void \
 ClusterServer<Key, Param, PullVal, Grad, PullAccessMethod, PushAccessMethod>::\
 init_pull_method() {
+    LOG(INFO) << "server register pull message_class ...";
     transfer_t::msgcls_handler_t handler = \
         [this] (std::shared_ptr<Request> req, Request& rsp) 
         {
@@ -122,6 +126,7 @@ template<typename Key, typename Param, typename PullVal, typename Grad, typename
 void \
 ClusterServer<Key, Param, PullVal, Grad, PullAccessMethod, PushAccessMethod>::\
 init_push_method() {
+    LOG(INFO) << "server register push message_class ...";
     transfer_t::msgcls_handler_t handler =  \
         [this] (std::shared_ptr<Request> req,  Request& rsp)
         {

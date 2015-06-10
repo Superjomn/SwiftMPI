@@ -17,6 +17,14 @@ public:
     Transfer<ServerWorkerRoute>& transfer() {
         return _transfer;
     }
+    /**
+     * @brief called after worker finish working 
+     */
+    void finalize() {
+        RAW_LOG(WARNING, "###################################");
+        RAW_LOG(WARNING, "     Worker terminate normally");
+        RAW_LOG(WARNING, "###################################");
+    }
 
 protected:
     void init_transfer() {
@@ -38,9 +46,8 @@ private:
     Transfer<ServerWorkerRoute> _transfer;
 };  // end class Worker
 
-template<class WorkerType>
-inline WorkerType& global_worker() {
-    static WorkerType worker;
+inline ClusterWorker& global_worker() {
+    static ClusterWorker worker;
     return worker;
 }
 
