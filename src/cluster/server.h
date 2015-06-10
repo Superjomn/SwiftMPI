@@ -147,9 +147,8 @@ init_push_method() {
     );
 }
 
-template<class ServerType>
-inline ServerType& global_server() {
-    static ServerType server;
+inline ClusterServer& global_server() {
+    static ClusterServer server;
     return server;
 }
 

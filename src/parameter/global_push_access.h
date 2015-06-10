@@ -22,7 +22,7 @@ public:
     typedef LocalParamCache<key_t, val_t, grad_t> param_cache_t;
 
     GlobalPushAccess() : \
-        gtransfer(global_transfer<ServerWorkerRoute>())
+        gtransfer(global_worker().transfer())
     { }
 
     void push_with_barrier(

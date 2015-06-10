@@ -53,15 +53,15 @@ protected:
         std::map<int, std::vector<pull_val_t> > &node_reqs) {
         pull_val_t param;    // empty value
 
-            for(const auto& key : keys ) {
-                int node_id = global_hashfrag<key_t>().to_node_id(key);
-                if(node_reqs.count(node_id) == 0) {
-                    node_reqs[node_id] = std::move(std::vector<pull_val_t>());
-                }
-
-                param.first = key;
-                node_reqs[node_id].push_back(param);
+        for(const auto& key : keys ) {
+            int node_id = global_hashfrag<key_t>().to_node_id(key);
+            if(node_reqs.count(node_id) == 0) {
+                node_reqs[node_id] = std::move(std::vector<pull_val_t>());
             }
+
+            param.first = key;
+            node_reqs[node_id].push_back(param);
+        }
         return node_reqs.size();
     }
     /*
@@ -98,7 +98,7 @@ protected:
                         rsp->cont >> key;
                         rsp->cont >> val;
                         params[key] = std::move(val);
-                        // init grads
+                        // reset grads
                         grads[key] = grad_t();
                     }
                 }
@@ -107,7 +107,6 @@ protected:
             };
 
             //RAW_LOG(INFO, "send pull req to %d", node_id);
-
             gtransfer.send(std::move(req), node_id);
             //recv_parcel->send(node_id);
         }
@@ -125,7 +124,4 @@ GlobalPullAccess<Key, Val, Grad>& global_pull_access() {
     return access;
 }
 
-
 };  // end namespace swift_snails
-
-
