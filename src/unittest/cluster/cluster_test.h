@@ -5,6 +5,7 @@ using namespace std;
 using namespace swift_snails;
 
 TEST(cluster, init) {
+    using  server_t = ClusterServer<int, int, int, int, 
     global_config().load_conf("./demo.conf");
     global_config().parse();
     Cluster<ClusterWorker, ClusterServer, int> cluster;

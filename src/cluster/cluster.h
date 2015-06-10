@@ -39,6 +39,8 @@ protected:
             std::string worker_addr, server_addr;
             format_string(worker_addr, "tcp://%s:%d",  ip.c_str(), worker_port);
             format_string(server_addr, "tcp://%s:%d",  ip.c_str(), server_port);
+            VLOG(1) << "worker_addr:\t" << worker_addr;
+            VLOG(1) << "server_addr:\t" << server_addr;
             global_route().register_node_(false, std::move(worker_addr));
             global_route().register_node_(true, std::move(server_addr));
         }
