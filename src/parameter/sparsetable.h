@@ -3,7 +3,7 @@
 namespace swift_snails {
 
 /**
- * \brief shard of SparseTable
+ * @brief shard of SparseTable
  *
  * a SparseTable contains several shards and the key-values will be 
  * splitted to the shards.
@@ -53,8 +53,8 @@ public:
         return _shard_id;
     }
     /**
-     * \brief output parameters to ostream
-     * \warning should define value's output method first
+     * @brief output parameters to ostream
+     * @warning should define value's output method first
      */
     friend std::ostream& operator<< (std::ostream& os, SparseTableShard &shard)
     {
@@ -80,7 +80,7 @@ private:
     //mutable std::mutex _mutex;
 };  // struct SparseTableShard
 /**
- * \brief container of sparse parameters
+ * @brief container of sparse parameters
  *
  * a SparseTable has several shards to split the storage and operation of 
  * parameters.
@@ -145,12 +145,44 @@ private:
     int _shard_num = 1;
 };  // class SparseTable
 /**
- * \brief Server-side operation agent
+ * @brief Base definition of parameter pull methods
+ */
+template<typename Key, typename Param, typename PullVal>
+class BasePullAccessMethod {
+public:
+    typedef Key key_t;
+    typedef Param param_t;
+    typedef PullVal pull_t;
+    /**
+     * @brief assign an initial value to param
+     */
+    virtual void init_param(const key_t &key, param_t &param) = 0;
+    /**
+     * @brief assign param to val
+     */
+    virtual void get_pull_value(const key_t &key, const param_t &param, pull_t& val) = 0;
+};  // end class BasePullAccessMethod
+/**
+ */
+template<typename Key, typename Param, typename Grad>
+class BasePushAccessMethod {
+public:
+    typedef Key key_t;
+    typedef Param param_t;
+    typedef Grad grad_t;
+    /**
+     * @brief update Server-side parameter with grad
+     */
+    virtual void apply_push_value(const key_t &key, param_t &param, const grad_t &grad) = 0;
+
+};  // end class BasePushAccessMethod
+/**
+ * @brief Server-side operation agent
  *
  * Pull: worker parameter query request.
  *
- * \param Table subclass of SparseTable
- * \param AccessMethod Server-side operation on parameters
+ * @param Table subclass of SparseTable
+ * @param AccessMethod Server-side operation on parameters
  */
 template<typename Table, typename AccessMethod>
 class PullAccessAgent {
@@ -160,8 +192,8 @@ public:
     typedef typename Table::value_t value_t;
 
     typedef AccessMethod   access_method_t;
-    typedef typename AccessMethod::pull_val_t pull_val_t;
-    typedef typename AccessMethod::pull_param_t pull_param_t;
+    typedef typename AccessMethod::pull_t pull_val_t;
+    typedef typename AccessMethod::param_t pull_param_t;
 
     explicit PullAccessAgent() {
     }
@@ -189,7 +221,7 @@ public:
         _access_method.get_pull_value(key, param, val);
     }
     /**
-     * \brief Worker-side get pull value
+     * @brief Worker-side get pull value
      */
     void apply_pull_value(const key_t &key, pull_param_t &param, const pull_val_t& val) {
         _access_method.apply_pull_value(key, param, val);
@@ -198,9 +230,8 @@ private:
     table_t     *_table;
     AccessMethod _access_method;
 };  // class AccessAgent
-
 /**
- * \brief Server-side push agent
+ * @brief Server-side push agent
  */
 template<typename Table, typename AccessMethod>
 class PushAccessAgent {
@@ -209,8 +240,8 @@ public:
     typedef typename Table::key_t   key_t;
     typedef typename Table::value_t value_t;
 
-    typedef typename AccessMethod::push_val_t push_val_t;
-    typedef typename AccessMethod::push_param_t push_param_t;
+    typedef typename AccessMethod::grad_t push_val_t;
+    typedef typename AccessMethod::param_t push_param_t;
 
     explicit PushAccessAgent() {
     }
@@ -222,7 +253,7 @@ public:
         _table(&table) 
     { }
     /**
-     * \brief update parameters with the value from remote worker nodes
+     * @brief update parameters with the value from remote worker nodes
      */
     void apply_push_value(const key_t& key, const push_val_t& push_val)
     {

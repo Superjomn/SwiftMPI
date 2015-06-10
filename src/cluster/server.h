@@ -44,7 +44,7 @@ private:
     Transfer<ServerWorkerRoute> _transfer;
     table_t &_sparsetable;
     std::unique_ptr<PullAccessAgent<table_t, pull_access_t>> _pull_access;
-    std::unique_ptr<PullAccessAgent<table_t, push_access_t>> _push_access;
+    std::unique_ptr<PushAccessAgent<table_t, push_access_t>> _push_access;
 };
 
 
@@ -58,7 +58,7 @@ ClusterServer() :
 {
     init_transfer();
     init_pull_method();
-    init_pull_method();
+    init_push_method();
 }
 
 template<typename Key, typename Param, typename PullVal, typename Grad, typename PullAccessMethod, typename PushAccessMethod>
@@ -94,7 +94,7 @@ init_pull_method() {
         [this] (std::shared_ptr<Request> req, Request& rsp) 
         {
             // read request
-            std::vector<pull_t> req_items;
+            std::vector<std::pair<key_t,pull_t>> req_items;
             while(! req->cont.read_finished()) {
                 key_t key;
                 param_t val;
