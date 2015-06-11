@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <cstring>
 #include <map>
 #include <set>
 #include <unordered_set>
@@ -28,6 +29,8 @@
 #include <fstream>
 #include <sstream>
 #include <mpi.h>
+#include <sparsehash/sparse_hash_map>
+#include <sparsehash/dense_hash_map>
 #include "VirtualObject.h"
 #include "glog/logging.h"
 #include "glog/raw_logging.h"

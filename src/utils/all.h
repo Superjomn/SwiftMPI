@@ -8,7 +8,7 @@
 #include "string.h"
 #include "zmq.h"
 #include "SpinLock.h"
-#include "hashmap.h"
+//#include "hashmap.h"
 #include "RWLock.h"
 #include "ConfigParser.h"
 #include "Timer.h"

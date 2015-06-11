@@ -15,7 +15,7 @@ struct alignas(64) SparseTableShard : public VirtualObject {
 public:
     typedef Key     key_t;
     typedef Value   value_t;
-    typedef dense_hash_map<key_t, value_t> map_t;
+    typedef google::dense_hash_map<key_t, value_t> map_t;
 
     SparseTableShard() {
         data().set_empty_key(std::numeric_limits<key_t>::max());

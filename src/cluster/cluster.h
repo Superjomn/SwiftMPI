@@ -11,7 +11,7 @@ class Cluster {
 
 public:
     Cluster() : 
-        _worker( global_worker<WorkerT>()),
+        _worker( global_worker()),
         _server( global_server<ServerT>())
     { }
 

@@ -1,9 +1,9 @@
 #include <climits>
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
+#include "../../utils/all.h"
 #include "../../cluster/cluster.h"
 #include "../../cluster/server.h"
 #include "../../parameter/sparsetable.h"
-using namespace std;
 using namespace swift_snails;
 
 class ClusterTestPullMethod : public BasePullAccessMethod<int, float, float> {
