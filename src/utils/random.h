@@ -16,5 +16,35 @@ inline std::default_random_engine& local_random_engine() {
     return r.engine;
 }
 
+/**
+ * @brief simple way to generate random int
+ *
+ * borrowed from word2vec-C from code.google
+ */
+struct Random {
+    Random(unsigned long long seed) {
+        next_random = seed;
+    }
+
+    unsigned long long operator() () {
+        next_random = next_random * (unsigned long long) 25214903917 + 11;
+        return next_random;
+    }
+
+    float gen_float() {
+         next_float_random = next_float_random * (unsigned long) 4903917 + 11;
+        return float(next_float_random) / std::numeric_limits<unsigned long>::max();
+    }
+
+private:
+    unsigned long long next_random  = 0;
+    unsigned long next_float_random = std::numeric_limits<unsigned long>::max() / 2;
+};
+
+
+inline Random& global_random() {
+    static Random r(2008);
+    return r;
+}
 
 };  // end namespace swift_snails
