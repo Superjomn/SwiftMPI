@@ -109,7 +109,7 @@ private:
 
 void async_exec( 
     int thread_num, 
-    AsynExec::task_t &&part_task,
+    AsynExec::task_t &part_task,
     std::shared_ptr<AsynExec::channel_t> channel
     ) 
 {

@@ -36,5 +36,15 @@ void scan_file_by_line (
     }
 }
 
-};  // end namespace swift_snails
-    
+/**
+ * parse file with keys like:
+ *  112 113 224 445
+ */
+std::vector<size_t> parse_keys_file(const std::string &line, const std::string &spliter = " ") {
+    std::vector<size_t> res;
+    auto fields = std::move(split(line, spliter));
+    for (std::string & f : fields) {
+        res.push_back(std::stoi(f));
+    }
+	return std::move(res);
+}

@@ -21,3 +21,4 @@
 #include "localenv.h"
 #include "AsynExec.h"
 #include "BasicChannel.h"
+#include "random.h"

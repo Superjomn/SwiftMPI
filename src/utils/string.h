@@ -122,6 +122,15 @@ private:
 };
 
 
+inline size_t count_spaces (const char* s) {
+    size_t count = 0;
+    while (*s != 0 && isspace(*s++)) {
+        count ++;
+    }
+    return count;
+}
+
+
 }; // end namespace swift_snails
 
 #endif 
