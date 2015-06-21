@@ -22,7 +22,7 @@ public:
         _grads.set_empty_key(std::numeric_limits<key_t>::max());
     }
 
-    void init_keys(std::set<key_t> &keys) {
+    void init_keys(std::unordered_set<key_t> &keys) {
         rwlock_write_guard lk(_rwlock);
 
         for(auto& key : keys) {

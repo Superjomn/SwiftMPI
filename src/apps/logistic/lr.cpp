@@ -1,5 +1,5 @@
 #include "../../swiftmpi.h"
-using namespace swift_snals;
+using namespace swift_snails;
 using namespace std;
 
 
@@ -9,10 +9,13 @@ struct LRParam {
     float val = 0;
     float grad2sum = 0;
 };
-
+/*
 struct LRLocalParam {
     float val = 0;
 };
+*/
+
+typedef float LRLocalParam;
 
 struct LRLocalGrad {
     float val = 0;
@@ -20,14 +23,29 @@ struct LRLocalGrad {
 };
 
 
-class LRPullAccessMethod : public PullAccessMethod<key_t, LRParam, LRLocalParam, LRLocalGrad>
+BinaryBuffer& operator<< (BinaryBuffer &bb, const LRParam &param) {
+    bb << param.val;
+}
+BinaryBuffer& operator>> (BinaryBuffer &bb, LRLocalParam &param) {
+    bb >> param;
+}
+BinaryBuffer& operator<< (BinaryBuffer &bb, const LRLocalGrad &grad) {
+    bb << float(grad.val / grad.count);
+}
+BinaryBuffer& operator>> (BinaryBuffer &bb, LRLocalGrad &grad) {
+    bb >> grad.val;
+    grad.count = 1;
+}
+
+
+class LRPullAccessMethod : public PullAccessMethod<key_t, LRParam, LRLocalParam>
 {
 public:
     virtual void init_param(const key_t &key, param_t &param) {
         param.val = global_random().gen_float();  
     }
     virtual void get_pull_value(const key_t &key, const param_t &param, pull_t& val) {
-        val.val = param.val;
+        val = param.val;
     }
 };
 
@@ -35,19 +53,22 @@ public:
 class LRPushAccessMethod : public PushAccessMethod<key_t, LRParam, LRLocalGrad>
 {
 public:
+    LRPushAccessMethod() :
+        initial_learning_rate( global_config().get_config("server", "initial_learning_rate").to_float())
+    { }
     /**
      * grad should be normalized before pushed
      */
-    virtual void apply_push_value(const key_t& key, param_t &param, const push_val_t& push_val) {
+    virtual void apply_push_value(const key_t& key, param_t &param, const grad_t& push_val) {
         param.grad2sum += push_val.val * push_val.val;
-        param.val += initial_learning_rate * push_val.val / sqrt(param.grad2sum + fudge_factor);
+        param.val += initial_learning_rate * push_val.val / float(std::sqrt(param.grad2sum + fudge_factor));
     }
 
 private:
-    float initial_learning_rate = global_config().get_config("server", "initial_learning_rate").to_float();
-    static float fudge_factor;
+    float initial_learning_rate; 
+    static const float fudge_factor;
 };
-float LRPullAccessMethod::fudge_factor = 1e-6;
+const float LRPushAccessMethod::fudge_factor = 1e-6;
 
 
 LocalParamCache<key_t, LRLocalParam, LRLocalGrad> param_cache;
@@ -100,12 +121,12 @@ public:
         std::mutex file_mut;
         SpinLock spinlock;
 
-        FILE* file = fopen(_path, "rb");
+        FILE* file = fopen(_path.c_str(), "rb");
         // first to init local keys
         gather_keys(file);
         pull();
 
-        auto handler = [this, 
+        AsynExec::task_t handler = [this, 
                 &line_count, &line_reader, 
                 &file, &file_mut, &spinlock]() {
             std::string line;
@@ -115,7 +136,7 @@ public:
                 { std::lock_guard<std::mutex> lk(file_mut);
                 line = std::move(string(line_reader.getline(file))); 
                 }
-                parse_instance(line, ins);
+                parse_instance(line.c_str(), ins);
                 line_count ++;
                 //if(ins.feas.size() < 4) continue;
                 error = learn_instance(ins);
@@ -153,14 +174,17 @@ public:
         _local_keys.clear();
         //CounterBarrier cbarrier(_nthreads);
 
-        auto handler = [this, &line_count, &line_reader,
-            &file_mut, &spinlock, minibatch
+        AsynExec::task_t handler = [this, &line_count, &line_reader,
+            &file_mut, &spinlock, minibatch, &file
         ] {
+            std::string line;
+            Instance ins;
             while (true) {
+                ins.clear();
                 { std::lock_guard<std::mutex> lk(file_mut);
                 line = std::move(string(line_reader.getline(file))); 
                 }
-                parse_instance(line, ins);
+                parse_instance(line.c_str(), ins);
                 //if(ins.feas.size() < 4) continue;
                 { std::lock_guard<SpinLock> lk(SpinLock);
                     for( const auto& item : ins.feas) {
@@ -172,7 +196,7 @@ public:
                 if (feof(file)) break;
             }
         };
-        async_exec(_nthreads, std::move(handler), _async_channel);
+        async_exec(_nthreads, handler, _async_channel);
         RAW_DLOG(INFO, "collect %d keys", _local_keys.size());
         fseek(file, cur_pos, SEEK_SET);
     }
@@ -182,7 +206,7 @@ public:
     float learn_instance(const Instance &ins) {
         float sum = 0;
         for (const auto& item : ins.feas) {
-            auto param = _param_cache.params()[item.first].val;
+            auto param = _param_cache.params()[item.first];
             sum += param * item.second;
         }
         float predict = 1. / ( 1. + exp( - sum ));
@@ -240,6 +264,21 @@ private:
     pull_access_t &_pull_access;
     push_access_t &_push_access;
     param_cache_t _param_cache;
-    std::set<key_t> _local_keys;
+    std::unordered_set<key_t> _local_keys;
     std::shared_ptr<AsynExec::channel_t> _async_channel;
 };
+
+
+int main() {
+    string path = "data.txt";
+    Cluster<ClusterWorker, ClusterServer, key_t> cluster;
+    cluster.initialize();
+
+    LR lr(path);
+    lr.train();
+
+    cluster.finalize();
+    LOG(WARNING) << "cluster exit.";
+
+    return 0;
+}

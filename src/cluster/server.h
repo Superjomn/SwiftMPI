@@ -3,6 +3,7 @@
 #include "../transfer/transfer.h"
 #include "../transfer/ServerWorkerRoute.h"
 #include "../parameter/sparsetable.h"
+#include "../parameter/accessmethod.h"
 #include "message_classes.h"
 
 namespace swift_snails {

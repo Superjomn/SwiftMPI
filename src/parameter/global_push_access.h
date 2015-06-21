@@ -1,8 +1,8 @@
 #pragma once
-#include "../../utils/all.h"
-#include "../system/message_classes.h"
+#include "../utils/all.h"
+#include "../cluster/message_classes.h"
 #include "../transfer/transfer.h"
-#include "hashfrag.h"
+#include "../cluster/hashfrag.h"
 #include "param.h"
 namespace swift_snails {
 /**
