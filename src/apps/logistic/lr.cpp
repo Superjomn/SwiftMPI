@@ -146,6 +146,9 @@ public:
         _push_access (global_push_access<lr_key_t, LRLocalParam, LRLocalGrad>())
     {
         _path = path; 
+        CHECK_GT(_path.size(), 0);
+        CHECK_GT(_minibatch, 0);
+        CHECK_GT(_nthreads, 0);
         AsynExec exec(_nthreads);
         _async_channel = exec.open();
     }
@@ -153,7 +156,9 @@ public:
     void train() {
         // init server-side parameter
         init_keys();
+        LOG (WARNING) << "... first pull to init local_param_cache";
         pull();
+        LOG (WARNING) << ">>> end pull()";
         global_mpi().barrier();
 
         std::atomic<int> line_count {0};
@@ -170,11 +175,15 @@ public:
                 &file, &file_mut, &spinlock]() {
             std::string line;
             float error;
+            char* cline;
             Instance ins;
             bool parse_res;
             while (true) {
+                if (feof(file)) break;
                 { std::lock_guard<std::mutex> lk(file_mut);
-                line = std::move(string(line_reader.getline(file))); 
+                    cline = line_reader.getline(file);
+                    if (! cline) continue;
+                    line = std::move(string(cline));
                 }
                 parse_res = parse_instance2(line, ins);
                 if (! parse_res) continue;
@@ -186,17 +195,27 @@ public:
                 if (feof(file)) break;
             }
         };
+        LOG (WARNING) << "... to train";
         while (true) {
             line_count = 0;
+            // rebuild local parameter cache
+            LOG (INFO) << "... gather keys";
             gather_keys(file, _minibatch);
+            _param_cache.clear();
+            _param_cache.init_keys(_local_keys);
+            LOG (INFO) << "... to pull minibatch";
             pull();
+            LOG (INFO) << "... to multi-thread train";
             async_exec(_nthreads, handler, _async_channel);
+            LOG (INFO) << "... to push minibatch";
             push();
+            /*
             printf(
                 "%cLines:%.2fk",
                 13, float(line_count) / 1000);
 
             fflush(stdout);
+            */
             if (feof(file)) break;
         }
         LOG(WARNING) << "finish training ...";
@@ -218,13 +237,17 @@ public:
         AsynExec::task_t handler = [this, &line_count, &line_reader,
             &file_mut, &spinlock, minibatch, &file
         ] {
+            char *cline = nullptr;
             std::string line;
             Instance ins;
             bool parse_res;
             while (true) {
+                if (feof(file)) break;
                 ins.clear();
                 { std::lock_guard<std::mutex> lk(file_mut);
-                line = std::move(string(line_reader.getline(file))); 
+                    cline = line_reader.getline(file);
+                    if (! cline) continue;
+                    line = std::move(string(cline));
                 }
                 parse_res = parse_instance2(line, ins);
                 if (! parse_res) continue;
@@ -240,7 +263,7 @@ public:
             }
         };
         async_exec(_nthreads, handler, _async_channel);
-        RAW_DLOG(INFO, "collect %d keys", _local_keys.size());
+        RAW_LOG(INFO, "collect %d keys", _local_keys.size());
         fseek(file, cur_pos, SEEK_SET);
     }
     /**
