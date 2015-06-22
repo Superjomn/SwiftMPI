@@ -222,6 +222,8 @@ public:
     }
 
     void send_response(Request &&request, int to_id) {
+        CHECK_GT( global_route().send_addrs().count(to_id), 0) 
+            << "to_id(" << to_id << ") is not valid";
         request.meta.client_id = to_id;
         Package package(request);
         Route& route = _route;
@@ -229,7 +231,7 @@ public:
             // TODO will the mutex share between sender and receiver 
             // effect performance?
             std::lock_guard<std::mutex> lock(
-                route->send_mutex(to_id)
+                * route.send_mutex(to_id)
             );
             PCHECK(ignore_signal_call(zmq_msg_send, &package.meta.zmg(), route.sender(to_id), ZMQ_SNDMORE) >= 0);
             PCHECK(ignore_signal_call(zmq_msg_send, &package.cont.zmg(), route.sender(to_id), 0) >= 0);

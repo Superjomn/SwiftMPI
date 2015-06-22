@@ -45,6 +45,7 @@ protected:
         _ports[global_mpi().rank() * 2] = _worker.transfer().recv_port();  // worker's port
         _ports[global_mpi().rank() * 2 + 1] = _server.transfer().recv_port();  // server's port
         CHECK(0 == MPI_Allgather(MPI_IN_PLACE, 0, MPI_BYTE, &_ports[0], sizeof(int), MPI_BYTE, MPI_COMM_WORLD));
+        int server_id, worker_id;
         // init global route
         for(int rank = 0; rank < global_mpi().size(); rank++) {
             std::string ip = std::string(global_mpi().ip(rank), global_mpi().IP_WIDTH);
@@ -55,8 +56,13 @@ protected:
             format_string(server_addr, "tcp://%s:%d",  ip.c_str(), server_port);
             LOG(INFO) << "worker_addr:\t" << worker_addr;
             LOG(INFO) << "server_addr:\t" << server_addr;
-            global_route().register_node_(false, std::move(worker_addr));
-            global_route().register_node_(true, std::move(server_addr));
+            worker_id = global_route().register_node_(false, std::move(worker_addr));
+            server_id = global_route().register_node_(true, std::move(server_addr));
+            if (rank == global_mpi().rank()) {
+                LOG (WARNING) << "init local client_id:\t" << worker_id << "\t" << server_id;
+                global_worker().transfer().set_client_id(worker_id);
+                global_server<ServerT>().transfer().set_client_id(server_id);
+            }
         }
         global_mpi().barrier();
     }

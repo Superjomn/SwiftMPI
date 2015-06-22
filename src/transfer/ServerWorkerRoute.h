@@ -21,13 +21,12 @@ public:
         int id{-1};
         if(is_server) {
             id = ++ _server_num;
-        	register_node(id, std::move(addr));
             _server_ids.push_back(id);
         } else {
             id = id_max_range - ++_worker_num;
-            register_node(id, std::move(addr));
             _worker_ids.push_back(id);
         }
+        register_node(id, std::move(addr));
         CHECK_GE(id, 0);
         return id;
     }
