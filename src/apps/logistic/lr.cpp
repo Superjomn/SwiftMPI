@@ -26,20 +26,6 @@ struct LRLocalGrad {
     }
 };
 
-/*
-BinaryBuffer& operator<< (BinaryBuffer &bb, LRLocalParam &param) {
-    float d;
-    bb << d;
-    d = param;
-    return bb;
-}
-BinaryBuffer& operator>> (BinaryBuffer &bb, LRLocalParam &param) {
-    float d;
-    bb >> d;
-    param = d;
-    return bb;
-}
-*/
 BinaryBuffer& operator<< (BinaryBuffer &bb, LRLocalGrad &grad) {
     bb << float(grad.val / grad.count);
     return bb;
@@ -82,9 +68,7 @@ private:
     static const float fudge_factor;
 };
 const float LRPushAccessMethod::fudge_factor = 1e-6;
-
-
-LocalParamCache<lr_key_t, LRLocalParam, LRLocalGrad> param_cache;
+//LocalParamCache<lr_key_t, LRLocalParam, LRLocalGrad> param_cache;
 
 struct Instance {
     float target;
@@ -97,6 +81,7 @@ struct Instance {
 };
 
 void parse_instance(const char* line, Instance &ins) {
+    RAW_LOG_INFO ("parsing:\t%s", line);
     char *cursor;
     unsigned int key;
     float value;
@@ -104,6 +89,8 @@ void parse_instance(const char* line, Instance &ins) {
     line = cursor;
     while (*(line + count_spaces(line)) != 0) {
         CHECK((key = (unsigned int)strtoul(line, &cursor, 10), cursor != line));
+        RAW_LOG_INFO ("... key:\t%d", key);
+        RAW_LOG_INFO ("... value:\t%d", value);
         line = cursor;
         ins.feas.emplace_back(key, value);
     }
@@ -240,8 +227,9 @@ protected:
      */
     void init_keys() {
         string line;
-        LOG(WARNING) << "init local keys ...";
+        LOG(WARNING) << "init local keys from path:\t" << _path << "...";
         ifstream file(_path);
+        CHECK (file.is_open()) << "file not opened!\t" << _path;
         Instance ins;
         _local_keys.clear();
         while(getline(file, line)) {
@@ -282,8 +270,12 @@ private:
 };
 
 
-int main() {
+int main(int argc, char** argv) {
     string path = "data.txt";
+    string conf = "demo.conf";
+    global_config().load_conf(conf);
+    global_config().parse();
+    GlobalMPI::initialize(argc, argv);
     typedef ClusterServer<lr_key_t, LRParam, LRLocalParam, LRLocalGrad, LRPullAccessMethod, LRPushAccessMethod> server_t;
     Cluster<ClusterWorker, server_t, lr_key_t> cluster;
     cluster.initialize();
