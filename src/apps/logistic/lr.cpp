@@ -22,19 +22,28 @@ struct LRLocalGrad {
     int count = 0;
 };
 
-
-BinaryBuffer& operator<< (BinaryBuffer &bb, const LRParam &param) {
-    bb << param.val;
+/*
+BinaryBuffer& operator<< (BinaryBuffer &bb, LRLocalParam &param) {
+    float d;
+    bb << d;
+    d = param;
+    return bb;
 }
 BinaryBuffer& operator>> (BinaryBuffer &bb, LRLocalParam &param) {
-    bb >> param;
+    float d;
+    bb >> d;
+    param = d;
+    return bb;
 }
-BinaryBuffer& operator<< (BinaryBuffer &bb, const LRLocalGrad &grad) {
+*/
+BinaryBuffer& operator<< (BinaryBuffer &bb, LRLocalGrad &grad) {
     bb << float(grad.val / grad.count);
+    return bb;
 }
 BinaryBuffer& operator>> (BinaryBuffer &bb, LRLocalGrad &grad) {
     bb >> grad.val;
     grad.count = 1;
+    return bb;
 }
 
 
@@ -271,11 +280,12 @@ private:
 
 int main() {
     string path = "data.txt";
-    Cluster<ClusterWorker, ClusterServer, key_t> cluster;
+    typedef ClusterServer<key_t, LRParam, LRLocalParam, LRLocalGrad, LRPullAccessMethod, LRPushAccessMethod> server_t;
+    Cluster<ClusterWorker, server_t, key_t> cluster;
     cluster.initialize();
 
-    LR lr(path);
-    lr.train();
+    //LR lr(path);
+    //lr.train();
 
     cluster.finalize();
     LOG(WARNING) << "cluster exit.";
