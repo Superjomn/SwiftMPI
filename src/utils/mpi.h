@@ -21,6 +21,11 @@ public:
         CHECK(0 == MPI_Allgather(MPI_IN_PLACE, 0, MPI_BYTE, &_ip_table[0], IP_WIDTH, MPI_BYTE, MPI_COMM_WORLD));
     }
 
+    static void initialize (int argc, char** argv) {
+        LOG (INFO) << "init MPI ...";
+        MPI_Init(&argc, &argv);
+    }
+
     ~GlobalMPI() {
         MPI_Finalize();
     }
