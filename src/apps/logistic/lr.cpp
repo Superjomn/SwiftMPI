@@ -80,8 +80,16 @@ struct Instance {
     }
 };
 
+std::ostream& operator<< (std::ostream &os, const Instance &ins) {
+    os << "instance:\t" << ins.target << "\t";
+    for (const auto& item : ins.feas) {
+        os << item.first << ":" << item.second << " ";
+    }
+    os << std::endl;
+}
+
 void parse_instance(const char* line, Instance &ins) {
-    RAW_LOG_INFO ("parsing:\t%s", line);
+    //RAW_LOG_INFO ("parsing:\t%s", line);
     char *cursor;
     unsigned int key;
     float value;
@@ -94,6 +102,34 @@ void parse_instance(const char* line, Instance &ins) {
         line = cursor;
         ins.feas.emplace_back(key, value);
     }
+}
+
+bool parse_instance2(const std::string &line, Instance &ins) {
+    //RAW_LOG_INFO ("parsing \"%s\"", line.c_str());
+    const char* pline = line.c_str();
+    ins.feas.clear();
+    while ((*pline == ' ') || (*pline == 0)) pline ++;
+    if ((*pline == 0) || (*pline == '#')) return false;
+    float value;
+    int nchar, feature;
+    if (std::sscanf(pline, "%f%n", &value, &nchar) >= 1) {
+        pline += nchar;
+        ins.target = value;
+
+        while (std::sscanf(pline, "%d:%f%n", &feature, &value, &nchar) >= 2) {
+            pline += nchar;
+            ins.feas.emplace_back(feature, value);
+        }
+        //while ((*pline != 0) && ((*pline == ' ') || (*pline == 9))) pline ++;
+        /*if ((*pline != 0) && (*pline != '#')) 
+            throw "cannot parse line \"" + line + "\" at character " + pline[0];
+        */
+    } else {
+        LOG(ERROR) << "parse line error";
+        throw "cannot parse line \"" + line + "\" at character " + pline[0];
+    }
+    //LOG(INFO) << ins;
+    return true;
 }
 
 
@@ -115,7 +151,11 @@ public:
     }
 
     void train() {
+        // init server-side parameter
         init_keys();
+        pull();
+        global_mpi().barrier();
+
         std::atomic<int> line_count {0};
         LineFileReader line_reader;
         std::mutex file_mut;
@@ -123,8 +163,7 @@ public:
 
         FILE* file = fopen(_path.c_str(), "rb");
         // first to init local keys
-        gather_keys(file);
-        pull();
+        //gather_keys(file);
 
         AsynExec::task_t handler = [this, 
                 &line_count, &line_reader, 
@@ -132,11 +171,13 @@ public:
             std::string line;
             float error;
             Instance ins;
+            bool parse_res;
             while (true) {
                 { std::lock_guard<std::mutex> lk(file_mut);
                 line = std::move(string(line_reader.getline(file))); 
                 }
-                parse_instance(line.c_str(), ins);
+                parse_res = parse_instance2(line, ins);
+                if (! parse_res) continue;
                 line_count ++;
                 //if(ins.feas.size() < 4) continue;
                 error = learn_instance(ins);
@@ -179,12 +220,14 @@ public:
         ] {
             std::string line;
             Instance ins;
+            bool parse_res;
             while (true) {
                 ins.clear();
                 { std::lock_guard<std::mutex> lk(file_mut);
                 line = std::move(string(line_reader.getline(file))); 
                 }
-                parse_instance(line.c_str(), ins);
+                parse_res = parse_instance2(line, ins);
+                if (! parse_res) continue;
                 //if(ins.feas.size() < 4) continue;
                 { std::lock_guard<SpinLock> lk(SpinLock);
                     for( const auto& item : ins.feas) {
@@ -227,6 +270,7 @@ protected:
      */
     void init_keys() {
         string line;
+        bool parse_res;
         LOG(WARNING) << "init local keys from path:\t" << _path << "...";
         ifstream file(_path);
         CHECK (file.is_open()) << "file not opened!\t" << _path;
@@ -234,13 +278,16 @@ protected:
         _local_keys.clear();
         while(getline(file, line)) {
             ins.clear();
-            parse_instance(line.c_str(), ins);
+            parse_res = parse_instance2(line, ins);
+            if (! parse_res) continue;
             for (const auto& item : ins.feas) {
                 _local_keys.insert(item.first);
             }
         }
+        RAW_LOG_WARNING ("... to init local parameter cache");
         _param_cache.init_keys(_local_keys);
         file.close();
+        RAW_LOG_WARNING (">>> finish init keys");
     }
     /**
      * query parameters contained in local cache from remote server

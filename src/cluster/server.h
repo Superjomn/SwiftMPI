@@ -30,8 +30,12 @@ public:
     typedef PullAccessMethod pull_access_t;
 
     ClusterServer():
-        _sparsetable(global_sparse_table<key_t, param_t>())
+        _sparsetable(global_sparse_table<key_t, param_t>()),
+        _pull_access(std::move(make_pull_access<table_t, pull_access_t>(_sparsetable))),
+        _push_access(std::move(make_push_access<table_t, push_access_t>(_sparsetable)))
     {
+        // check init parameters
+        CHECK(_pull_access && _push_access) << "access is not inited";
         init_transfer();
         init_pull_method();
         init_push_method();

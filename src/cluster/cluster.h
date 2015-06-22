@@ -47,14 +47,14 @@ protected:
         CHECK(0 == MPI_Allgather(MPI_IN_PLACE, 0, MPI_BYTE, &_ports[0], sizeof(int), MPI_BYTE, MPI_COMM_WORLD));
         // init global route
         for(int rank = 0; rank < global_mpi().size(); rank++) {
-            std::string ip = std::string(global_mpi().ip(), global_mpi().IP_WIDTH);
+            std::string ip = std::string(global_mpi().ip(rank), global_mpi().IP_WIDTH);
             int worker_port = _ports[rank * 2];
             int server_port = _ports[rank * 2 + 1];
             std::string worker_addr, server_addr;
             format_string(worker_addr, "tcp://%s:%d",  ip.c_str(), worker_port);
             format_string(server_addr, "tcp://%s:%d",  ip.c_str(), server_port);
-            VLOG(1) << "worker_addr:\t" << worker_addr;
-            VLOG(1) << "server_addr:\t" << server_addr;
+            LOG(INFO) << "worker_addr:\t" << worker_addr;
+            LOG(INFO) << "server_addr:\t" << server_addr;
             global_route().register_node_(false, std::move(worker_addr));
             global_route().register_node_(true, std::move(server_addr));
         }

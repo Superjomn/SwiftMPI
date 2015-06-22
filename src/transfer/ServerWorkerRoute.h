@@ -20,7 +20,7 @@ public:
         rwlock_write_guard lock(_read_write_lock);
         int id{-1};
         if(is_server) {
-            id = _server_num ++;
+            id = ++ _server_num;
         	register_node(id, std::move(addr));
             _server_ids.push_back(id);
         } else {
