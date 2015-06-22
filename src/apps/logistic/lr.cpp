@@ -26,6 +26,10 @@ struct LRLocalGrad {
     }
 };
 
+std::ostream& operator<< (std::ostream& os, LRParam &param) {
+    os << param.val;
+    return os;
+}
 BinaryBuffer& operator<< (BinaryBuffer &bb, LRLocalGrad &grad) {
     bb << float(grad.val / grad.count);
     return bb;

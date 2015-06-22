@@ -32,6 +32,10 @@ public:
     void finalize() {
         global_mpi().barrier();
         // TODO tell workers to exit
+        _worker.finalize();
+        global_mpi().barrier();
+        _server.finalize();
+        global_mpi().barrier();
         // TODO tell server to output parameters
         // TODO tell server to exit
         // TODO terminate cluster
