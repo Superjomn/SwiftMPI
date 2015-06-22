@@ -39,7 +39,6 @@ void scan_file_by_line (
 /**
  * parse file with keys like:
  *  112 113 224 445
- */
 std::vector<size_t> parse_keys_file(const std::string &line, const std::string &spliter = " ") {
     std::vector<size_t> res;
     auto fields = std::move(split(line, spliter));
@@ -48,3 +47,6 @@ std::vector<size_t> parse_keys_file(const std::string &line, const std::string &
     }
 	return std::move(res);
 }
+*/
+
+};

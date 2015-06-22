@@ -1,8 +1,9 @@
 // utils
 #include "utils/ConfigParser_test.h"
-#include "cluster/cluster_test.h"
-#include "parameter/param_test.h"
-#include "utils/random_test.h"
+//#include "cluster/cluster_test.h"
+//#include "parameter/param_test.h"
+//#include "utils/random_test.h"
+#include "cluster/simple.h"
 
 
 int main(int argc, char **argv) {  

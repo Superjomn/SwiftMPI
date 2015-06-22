@@ -102,7 +102,7 @@ init_pull_method() {
             std::vector<std::pair<key_t,pull_t>> req_items;
             while(! req->cont.read_finished()) {
                 key_t key;
-                param_t val;
+                pull_t val;
                 req->cont >> key;
                 req->cont >> val;
                 req_items.emplace_back(std::move(key), std::move(val));
@@ -110,7 +110,7 @@ init_pull_method() {
             // query parameters
             for( auto& item : req_items) {
                 key_t& key = item.first;
-                param_t& val = item.second;
+                pull_t& val = item.second;
                 _pull_access->get_pull_value(key, val);
                 // put response
                 rsp.cont << key;

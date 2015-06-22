@@ -2,11 +2,11 @@
 #include <gtest/gtest.h>
 #include "../../utils/all.h"
 #include "../../cluster/cluster.h"
-#include "../../cluster/server.h"
 #include "../../parameter/sparsetable.h"
+#include "../../parameter/accessmethod.h"
 using namespace swift_snails;
 
-class ClusterTestPullMethod : public BasePullAccessMethod<int, float, float> {
+class ClusterTestPullMethod : public PullAccessMethod<int, float, float> {
 public:
     virtual void init_param(const key_t &key, param_t &param)  {
         param = 0.0;
@@ -18,7 +18,7 @@ public:
 };
 
 
-class ClusterTestPushMethod : public BasePushAccessMethod<int, float, float> {
+class ClusterTestPushMethod : public PushAccessMethod<int, float, float> {
 public:
     virtual void apply_push_value(const key_t &key, param_t &param, const grad_t &grad) {
         param += grad;

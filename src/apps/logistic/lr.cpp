@@ -1,9 +1,8 @@
 #include "../../swiftmpi.h"
-using namespace swift_snails;
 using namespace std;
+using namespace swift_snails;
 
-
-typedef unsigned int key_t;
+typedef unsigned int lr_key_t;
 
 struct LRParam {
     float val = 0;
@@ -20,6 +19,11 @@ typedef float LRLocalParam;
 struct LRLocalGrad {
     float val = 0;
     int count = 0;
+
+    void reset() {
+        val = 0;
+        count = 0;
+    }
 };
 
 /*
@@ -47,19 +51,19 @@ BinaryBuffer& operator>> (BinaryBuffer &bb, LRLocalGrad &grad) {
 }
 
 
-class LRPullAccessMethod : public PullAccessMethod<key_t, LRParam, LRLocalParam>
+class LRPullAccessMethod : public PullAccessMethod<lr_key_t, LRParam, LRLocalParam>
 {
 public:
-    virtual void init_param(const key_t &key, param_t &param) {
+    virtual void init_param(const lr_key_t &key, param_t &param) {
         param.val = global_random().gen_float();  
     }
-    virtual void get_pull_value(const key_t &key, const param_t &param, pull_t& val) {
+    virtual void get_pull_value(const lr_key_t &key, const param_t &param, pull_t& val) {
         val = param.val;
     }
 };
 
 
-class LRPushAccessMethod : public PushAccessMethod<key_t, LRParam, LRLocalGrad>
+class LRPushAccessMethod : public PushAccessMethod<lr_key_t, LRParam, LRLocalGrad>
 {
 public:
     LRPushAccessMethod() :
@@ -68,7 +72,7 @@ public:
     /**
      * grad should be normalized before pushed
      */
-    virtual void apply_push_value(const key_t& key, param_t &param, const grad_t& push_val) {
+    virtual void apply_push_value(const lr_key_t& key, param_t &param, const grad_t& push_val) {
         param.grad2sum += push_val.val * push_val.val;
         param.val += initial_learning_rate * push_val.val / float(std::sqrt(param.grad2sum + fudge_factor));
     }
@@ -80,7 +84,7 @@ private:
 const float LRPushAccessMethod::fudge_factor = 1e-6;
 
 
-LocalParamCache<key_t, LRLocalParam, LRLocalGrad> param_cache;
+LocalParamCache<lr_key_t, LRLocalParam, LRLocalGrad> param_cache;
 
 struct Instance {
     float target;
@@ -108,15 +112,15 @@ void parse_instance(const char* line, Instance &ins) {
 
 class LR {
 public:
-    typedef GlobalPullAccess<key_t, LRLocalParam, LRLocalGrad> pull_access_t;
-    typedef GlobalPushAccess<key_t, LRLocalParam, LRLocalGrad> push_access_t;
-    typedef LocalParamCache<key_t, LRLocalParam, LRLocalGrad> param_cache_t;
+    typedef GlobalPullAccess<lr_key_t, LRLocalParam, LRLocalGrad> pull_access_t;
+    typedef GlobalPushAccess<lr_key_t, LRLocalParam, LRLocalGrad> push_access_t;
+    typedef LocalParamCache<lr_key_t, LRLocalParam, LRLocalGrad> param_cache_t;
 
     LR (const string& path) : 
         _minibatch (global_config().get_config("worker", "minibatch").to_int32()),
         _nthreads (global_config().get_config("worker", "nthreads").to_int32()),
-        _pull_access (global_pull_access<key_t, LRLocalParam, LRLocalGrad>()),
-        _push_access (global_push_access<key_t, LRLocalParam, LRLocalGrad>())
+        _pull_access (global_pull_access<lr_key_t, LRLocalParam, LRLocalGrad>()),
+        _push_access (global_push_access<lr_key_t, LRLocalParam, LRLocalGrad>())
     {
         _path = path; 
         AsynExec exec(_nthreads);
@@ -273,19 +277,19 @@ private:
     pull_access_t &_pull_access;
     push_access_t &_push_access;
     param_cache_t _param_cache;
-    std::unordered_set<key_t> _local_keys;
+    std::unordered_set<lr_key_t> _local_keys;
     std::shared_ptr<AsynExec::channel_t> _async_channel;
 };
 
 
 int main() {
     string path = "data.txt";
-    typedef ClusterServer<key_t, LRParam, LRLocalParam, LRLocalGrad, LRPullAccessMethod, LRPushAccessMethod> server_t;
-    Cluster<ClusterWorker, server_t, key_t> cluster;
+    typedef ClusterServer<lr_key_t, LRParam, LRLocalParam, LRLocalGrad, LRPullAccessMethod, LRPushAccessMethod> server_t;
+    Cluster<ClusterWorker, server_t, lr_key_t> cluster;
     cluster.initialize();
 
-    //LR lr(path);
-    //lr.train();
+    LR lr(path);
+    lr.train();
 
     cluster.finalize();
     LOG(WARNING) << "cluster exit.";
