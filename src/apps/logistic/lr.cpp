@@ -9,11 +9,6 @@ struct LRParam {
     float val = 0;
     float grad2sum = 0;
 };
-/*
-struct LRLocalParam {
-    float val = 0;
-};
-*/
 
 typedef float LRLocalParam;
 
@@ -96,22 +91,6 @@ std::ostream& operator<< (std::ostream &os, const Instance &ins) {
     os << std::endl;
 }
 
-void parse_instance(const char* line, Instance &ins) {
-    //RAW_LOG_INFO ("parsing:\t%s", line);
-    char *cursor;
-    unsigned int key;
-    float value;
-    CHECK((ins.target=strtod(line, &cursor), cursor != line)) << "target parse error!";
-    line = cursor;
-    while (*(line + count_spaces(line)) != 0) {
-        CHECK((key = (unsigned int)strtoul(line, &cursor, 10), cursor != line));
-        RAW_LOG_INFO ("... key:\t%d", key);
-        RAW_LOG_INFO ("... value:\t%d", value);
-        line = cursor;
-        ins.feas.emplace_back(key, value);
-    }
-}
-
 bool parse_instance2(const std::string &line, Instance &ins) {
     //RAW_LOG_INFO ("parsing \"%s\"", line.c_str());
     const char* pline = line.c_str();
@@ -147,16 +126,18 @@ public:
     typedef GlobalPushAccess<lr_key_t, LRLocalParam, LRLocalGrad> push_access_t;
     typedef LocalParamCache<lr_key_t, LRLocalParam, LRLocalGrad> param_cache_t;
 
-    LR (const string& path) : 
+    LR (const string& path, int niters) : 
         _minibatch (global_config().get_config("worker", "minibatch").to_int32()),
         _nthreads (global_config().get_config("worker", "nthreads").to_int32()),
         _pull_access (global_pull_access<lr_key_t, LRLocalParam, LRLocalGrad>()),
-        _push_access (global_push_access<lr_key_t, LRLocalParam, LRLocalGrad>())
+        _push_access (global_push_access<lr_key_t, LRLocalParam, LRLocalGrad>()),
+        _niters (niters)
     {
         _path = path; 
         CHECK_GT(_path.size(), 0);
         CHECK_GT(_minibatch, 0);
         CHECK_GT(_nthreads, 0);
+        CHECK_GT(_niters, 0);
         AsynExec exec(_nthreads);
         _async_channel = exec.open();
     }
@@ -173,6 +154,7 @@ public:
         LineFileReader line_reader;
         std::mutex file_mut;
         SpinLock spinlock;
+        double total_error {0}; int nrecords {0};
 
         FILE* file = fopen(_path.c_str(), "rb");
         // first to init local keys
@@ -180,7 +162,7 @@ public:
 
         AsynExec::task_t handler = [this, 
                 &line_count, &line_reader, 
-                &file, &file_mut, &spinlock]() {
+                &file, &file_mut, &spinlock, &total_error, &nrecords]() {
             std::string line;
             float error;
             char* cline;
@@ -197,33 +179,42 @@ public:
                 if (! parse_res) continue;
                 //if(ins.feas.size() < 4) continue;
                 error = learn_instance(ins);
+                total_error += error;
+                nrecords ++;
                 line_count ++;
                 if (line_count > _minibatch) break;
                 if (feof(file)) break;
             }
         };
         LOG (WARNING) << "... to train";
-        while (true) {
-            line_count = 0;
-            // rebuild local parameter cache
-            LOG (INFO) << "... gather keys";
-            gather_keys(file, _minibatch);
-            _param_cache.clear();
-            _param_cache.init_keys(_local_keys);
-            LOG (INFO) << "... to pull minibatch";
-            pull();
-            LOG (INFO) << "... to multi-thread train";
-            async_exec(_nthreads, handler, _async_channel);
-            LOG (INFO) << "... to push minibatch";
-            push();
-            /*
-            printf(
-                "%cLines:%.2fk",
-                13, float(line_count) / 1000);
+        for (int i = 0; i < _niters; i++) {
+            LOG (WARNING) << i << "th train";
+            while (true) {
+                line_count = 0;
+                // rebuild local parameter cache
+                //LOG (INFO) << "... gather keys";
+                gather_keys(file, _minibatch);
+                _param_cache.clear();
+                _param_cache.init_keys(_local_keys);
+                //LOG (INFO) << "... to pull minibatch";
+                pull();
+                //LOG (INFO) << "... to multi-thread train";
+                async_exec(_nthreads, handler, _async_channel);
+                //LOG (INFO) << "... to push minibatch";
+                push();
+                /*
+                printf(
+                    "%cLines:%.2fk",
+                    13, float(line_count) / 1000);
 
-            fflush(stdout);
-            */
-            if (feof(file)) break;
+                fflush(stdout);
+                */
+                if (feof(file)) break;
+            }
+            LOG (INFO) << nrecords << " records\terror:\t" << total_error / nrecords;
+            total_error = 0; nrecords = 0;
+            // jump to file's beginning
+            rewind(file);
         }
         LOG(WARNING) << "finish training ...";
     }
@@ -270,7 +261,7 @@ public:
             }
         };
         async_exec(_nthreads, handler, _async_channel);
-        RAW_LOG(INFO, "collect %d keys", _local_keys.size());
+        //RAW_LOG(INFO, "collect %d keys", _local_keys.size());
         fseek(file, cur_pos, SEEK_SET);
     }
     /**
@@ -348,8 +339,9 @@ private:
 };
 
 // gflags
-DEFINE_string(dataset, "data.txt", "path of the dataset");
-DEFINE_string(config, "demo.conf", "path of the config file");
+DEFINE_string (dataset, "data.txt", "path of the dataset");
+DEFINE_string (config, "demo.conf", "path of the config file");
+DEFINE_int32 (niters, 3, "number of iterations");
 
 int main(int argc, char** argv) {
     GlobalMPI::initialize(argc, argv);
@@ -362,7 +354,7 @@ int main(int argc, char** argv) {
     Cluster<ClusterWorker, server_t, lr_key_t> cluster;
     cluster.initialize();
 
-    LR lr(FLAGS_dataset);
+    LR lr(FLAGS_dataset, FLAGS_niters);
     lr.train();
 
     cluster.finalize();

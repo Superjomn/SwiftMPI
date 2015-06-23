@@ -48,7 +48,8 @@ protected:
         // distribute port
         _ports[global_mpi().rank() * 2] = _worker.transfer().recv_port();  // worker's port
         _ports[global_mpi().rank() * 2 + 1] = _server.transfer().recv_port();  // server's port
-        CHECK(0 == MPI_Allgather(MPI_IN_PLACE, 0, MPI_BYTE, &_ports[0], sizeof(int), MPI_BYTE, MPI_COMM_WORLD));
+        CHECK(0 == MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, &_ports[0], 2, MPI_INT, MPI_COMM_WORLD));
+        //for (auto p : _ports) RAW_LOG_INFO ("%d get port:\t%d", global_mpi().rank(), p);
         int server_id, worker_id;
         // init global route
         for(int rank = 0; rank < global_mpi().size(); rank++) {
