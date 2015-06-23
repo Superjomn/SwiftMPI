@@ -21,9 +21,9 @@ public:
      * @brief called after worker finish working 
      */
     void finalize() {
-        RAW_LOG(WARNING, "###################################");
-        RAW_LOG(WARNING, "     Worker terminate normally");
-        RAW_LOG(WARNING, "###################################");
+        RAW_LOG(WARNING, "########################################");
+        RAW_LOG(WARNING, "     Worker [%d] terminate normally", global_mpi().rank());
+        RAW_LOG(WARNING, "########################################");
     }
 
 protected:

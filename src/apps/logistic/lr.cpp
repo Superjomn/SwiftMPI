@@ -27,7 +27,8 @@ std::ostream& operator<< (std::ostream& os, LRParam &param) {
     return os;
 }
 BinaryBuffer& operator<< (BinaryBuffer &bb, LRLocalGrad &grad) {
-    CHECK_GT(grad.count, 0);
+    //CHECK_GT(grad.count, 0);
+    if (grad.count == 0) return bb;
     bb << float(grad.val / grad.count);
     return bb;
 }
@@ -356,8 +357,11 @@ int main(int argc, char** argv) {
 
     LR lr(FLAGS_dataset, FLAGS_niters);
     lr.train();
-
-    cluster.finalize();
+    
+    std::string out_param_path = global_config().get_config("server", "out_param_prefix").to_string();
+    swift_snails::format_string(out_param_path, "-%d.txt", global_mpi().rank());
+    RAW_LOG_WARNING ("server output parameter to %s", out_param_path.c_str());
+    cluster.finalize(out_param_path);
     LOG(WARNING) << "cluster exit.";
 
     return 0;

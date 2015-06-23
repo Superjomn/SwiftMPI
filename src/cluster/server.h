@@ -43,12 +43,16 @@ public:
     /**
      * @brief called when worker finish working
      */
-    void finalize() {
+    void finalize(const std::string& path="") {
         RAW_LOG(WARNING, "server output parameters");
-        _sparsetable.output();
-        RAW_LOG(WARNING, "###################################");
-        RAW_LOG(WARNING, "     Server terminate normally");
-        RAW_LOG(WARNING, "###################################");
+        if (path.empty()) 
+            _sparsetable.output();
+        else
+            _sparsetable.output(path);
+
+        RAW_LOG(WARNING, "########################################");
+        RAW_LOG(WARNING, "     Server [%d] terminate normally", global_mpi().rank());
+        RAW_LOG(WARNING, "########################################");
     }
 
     Transfer<ServerWorkerRoute>& transfer() {

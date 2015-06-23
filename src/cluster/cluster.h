@@ -29,12 +29,13 @@ public:
      * * tell all Servers to output parameter and exit
      * * tell all Workers to exit
      */
-    void finalize() {
+    void finalize(const std::string& path = "") {
         global_mpi().barrier();
         // TODO tell workers to exit
         _worker.finalize();
         global_mpi().barrier();
-        _server.finalize();
+        if (path.empty()) _server.finalize();
+            else _server.finalize(path);
         global_mpi().barrier();
         // TODO tell server to output parameters
         // TODO tell server to exit

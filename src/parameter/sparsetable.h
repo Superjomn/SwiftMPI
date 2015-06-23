@@ -126,6 +126,15 @@ public:
             std::cout << shard(i);
         }
     }
+    /**
+     * output to a local file
+     */
+    void output(const std::string& path) {
+        std::ofstream file(path.c_str(), std::ios::out);
+        for(int i = 0; i < shard_num(); i++) {
+            file << shard(i);
+        }
+    }
 
     index_t size() const {
         index_t res = 0;
