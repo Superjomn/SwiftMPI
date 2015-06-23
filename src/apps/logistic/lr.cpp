@@ -1,3 +1,4 @@
+#include <gflags/gflags.h>
 #include "../../swiftmpi.h"
 using namespace std;
 using namespace swift_snails;
@@ -346,18 +347,22 @@ private:
     std::shared_ptr<AsynExec::channel_t> _async_channel;
 };
 
+// gflags
+DEFINE_string(dataset, "data.txt", "path of the dataset");
+DEFINE_string(config, "demo.conf", "path of the config file");
 
 int main(int argc, char** argv) {
-    string path = "data.txt";
-    string conf = "demo.conf";
-    global_config().load_conf(conf);
-    global_config().parse();
     GlobalMPI::initialize(argc, argv);
+    google::ParseCommandLineFlags(&argc, &argv, true);
+    //string path = "data.txt";
+    //string conf = "demo.conf";
+    global_config().load_conf(FLAGS_config);
+    global_config().parse();
     typedef ClusterServer<lr_key_t, LRParam, LRLocalParam, LRLocalGrad, LRPullAccessMethod, LRPushAccessMethod> server_t;
     Cluster<ClusterWorker, server_t, lr_key_t> cluster;
     cluster.initialize();
 
-    LR lr(path);
+    LR lr(FLAGS_dataset);
     lr.train();
 
     cluster.finalize();
