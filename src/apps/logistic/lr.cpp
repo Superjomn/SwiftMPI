@@ -31,6 +31,7 @@ std::ostream& operator<< (std::ostream& os, LRParam &param) {
     return os;
 }
 BinaryBuffer& operator<< (BinaryBuffer &bb, LRLocalGrad &grad) {
+    CHECK_GT(grad.count, 0);
     bb << float(grad.val / grad.count);
     return bb;
 }
@@ -49,6 +50,7 @@ public:
     }
     virtual void get_pull_value(const lr_key_t &key, const param_t &param, pull_t& val) {
         val = param.val;
+        //RAW_LOG_INFO ( "pull\t%d:%f", key, val);
     }
 };
 
@@ -63,6 +65,7 @@ public:
      * grad should be normalized before pushed
      */
     virtual void apply_push_value(const lr_key_t& key, param_t &param, const grad_t& push_val) {
+        //RAW_LOG_INFO ("push key:param/grad\t%d:%f/%f/%d", key, param.val, push_val.val, push_val.count);
         param.grad2sum += push_val.val * push_val.val;
         param.val += initial_learning_rate * push_val.val / float(std::sqrt(param.grad2sum + fudge_factor));
     }
@@ -191,7 +194,6 @@ public:
                 }
                 parse_res = parse_instance2(line, ins);
                 if (! parse_res) continue;
-                line_count ++;
                 //if(ins.feas.size() < 4) continue;
                 error = learn_instance(ins);
                 line_count ++;
@@ -286,6 +288,7 @@ public:
         for (const auto& item : ins.feas) {
             grad = error * item.second;
             _param_cache.grads()[item.first].val += grad;
+            //RAW_LOG_INFO( "grad:\t%d:%f", item.first, grad);
             _param_cache.grads()[item.first].count ++;
         }
         return error * error;
