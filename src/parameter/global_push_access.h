@@ -88,6 +88,7 @@ protected:
             Request req;
             req.meta.message_class = WORKER_PUSH_REQUEST;
             for(auto& grad : grads) {
+                //RAW_LOG_INFO("push to node %d key:%d\t", node_id, grad.first);
                 req.cont << grad.first; // key
                 req.cont << grad.second;// grad value
             }

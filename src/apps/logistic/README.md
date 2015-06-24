@@ -18,11 +18,11 @@ Usage
 
 Train Mode:
 
-    ./bin/logistic -config <config path> -dataset <dataset path> -niters <number of iterations>
+    ./bin/logistic -mode 0 -config <config path> -dataset <dataset path> -niters <number of iterations>
 
 Predict Mode:
 
-    ./bin/logistic -config <config path> -dataset <dataset path> -param_path <path of parameter> -out <path to output predictions>
+    ./bin/logistic -mode 1 -config <config path> -dataset <dataset path> -param_path <path of parameter> -out_prefix <path to output predictions>
 
 Configuration
 ---------------

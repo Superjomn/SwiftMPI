@@ -163,6 +163,7 @@ init_push_method() {
                 grad_t grad;
                 req->cont >> key;
                 req->cont >> grad;
+                //RAW_LOG_INFO ("bb >> key:\t%d", key);
                 _push_access->apply_push_value(key, grad);
             }
             rsp.cont << 1234;

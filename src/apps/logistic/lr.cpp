@@ -208,13 +208,6 @@ public:
                 async_exec(_nthreads, handler, _async_channel);
                 //LOG (INFO) << "... to push minibatch";
                 push();
-                /*
-                printf(
-                    "%cLines:%.2fk",
-                    13, float(line_count) / 1000);
-
-                fflush(stdout);
-                */
                 if (feof(file)) break;
             }
             LOG (INFO) << nrecords << " records\terror:\t" << total_error / nrecords;
@@ -225,8 +218,59 @@ public:
         LOG(WARNING) << "finish training ...";
     }
 
+    void predict(const std::string& path, const std::string& out) {
+        LOG (WARNING) << "to predict " << path;
+        std::atomic<int> line_count {0};
+        LineFileReader line_reader;
+        std::mutex file_mut;
+        SpinLock spinlock;
+        double total_error {0}; int nrecords {0};
+        FILE* file = fopen(_path.c_str(), "rb");
+        std::ofstream outfile(out.c_str());
+        AsynExec::task_t handler = [this, 
+                &line_count, &line_reader, 
+                &file, &file_mut, &spinlock, &total_error, &nrecords, &outfile]() {
+            std::string line;
+            float error, predict;
+            char* cline;
+            Instance ins;
+            bool parse_res;
+            while (true) {
+                if (feof(file)) break;
+                { std::lock_guard<std::mutex> lk(file_mut);
+                    cline = line_reader.getline(file);
+                    if (! cline) continue;
+                    line = std::move(string(cline));
+                }
+                parse_res = parse_instance2(line, ins);
+                if (! parse_res) continue;
+                //if(ins.feas.size() < 4) continue;
+                error = predict_instance(ins, predict);
+                outfile << predict << std::endl;
+                total_error += error;
+                nrecords ++;
+                line_count ++;
+                if (line_count > _minibatch) break;
+                if (feof(file)) break;
+            }
+        };
+
+        while (true) {
+            line_count = 0;
+            // rebuild local parameter cache
+            gather_keys(file, _minibatch);
+            _param_cache.clear();
+            _param_cache.init_keys(_local_keys);
+            pull();
+            async_exec(1, handler, _async_channel);
+            if (feof(file)) break;
+        }
+
+    }
+
     void load_param (const std::string &path) {
         global_server<server_t>().load(path);
+        global_mpi().barrier();
     }
 protected:
     /**
@@ -296,6 +340,16 @@ protected:
         }
         return error * error;
     }
+    float predict_instance(const Instance &ins, float &predict) {
+        float sum = 0;
+        for (const auto& item : ins.feas) {
+            auto param = _param_cache.params()[item.first];
+            sum += param * item.second;
+        }
+        predict = 1. / ( 1. + exp( - sum ));
+        float error = ins.target - predict;
+        return error;
+    }
 
 
 protected:
@@ -351,11 +405,12 @@ private:
 };
 
 // gflags
-DEFINE_bool   (to_train, true, "train/predict mode, true/false");
+DEFINE_int32  (mode, 0, "train/predict mode, 0/1");
 DEFINE_string (dataset, "data.txt", "path of the dataset");
 DEFINE_string (config, "demo.conf", "path of the config file");
 DEFINE_int32  (niters, 3, "number of iterations (in train mode)");
 DEFINE_string (param_path, "", "path of parameter (in predict mode)");
+DEFINE_string (out_prefix, "lr.pred", "path to output predictions");
 
 int main(int argc, char** argv) {
     GlobalMPI::initialize(argc, argv);
@@ -366,9 +421,9 @@ int main(int argc, char** argv) {
     usage += "Author: Chunwei Yan <yanchunwei@outlook.com>\n";
     usage += "\nUsage:\n\n";
     usage += "Train Mode:\n";
-    usage += "    <MPI_ARGS>" + std::string(argv[0]) + " -config <path> -niters <number> -dataset <path>\n";
+    usage += "    <MPI_ARGS>" + std::string(argv[0]) + "-mode 0 -config <path> -niters <number> -dataset <path>\n";
     usage += "\nPredict Mode:\n";
-    usage += "    <MPI_ARGS>" + std::string(argv[0]) + " -config <path> -dataset <path> -param_path <path> -out_prefix <string>";
+    usage += "    <MPI_ARGS>" + std::string(argv[0]) + "-mode 1 -config <path> -dataset <path> -param_path <path> -out_prefix <string>";
     google::SetUsageMessage(usage);
     google::ParseCommandLineFlags(&argc, &argv, true);
     // load configs
@@ -379,16 +434,19 @@ int main(int argc, char** argv) {
     cluster.initialize();
     LR lr(FLAGS_dataset, FLAGS_niters);
     // to train
-    if (FLAGS_to_train) { 
+    if (FLAGS_mode == 0) { 
         lr.train();
         std::string out_param_path = global_config().get_config("server", "out_param_prefix").to_string();
         swift_snails::format_string(out_param_path, "-%d.txt", global_mpi().rank());
         RAW_LOG_WARNING ("server output parameter to %s", out_param_path.c_str());
         cluster.finalize(out_param_path);
+
     // to predict
     } else {
         CHECK(!FLAGS_param_path.empty()) << "argument [param_path] should be set in predict mode";
         lr.load_param(FLAGS_param_path);
+        swift_snails::format_string(FLAGS_out_prefix, "-%d.txt", global_mpi().rank());
+        lr.predict(FLAGS_dataset, FLAGS_out_prefix);
         cluster.finalize();
     }
     

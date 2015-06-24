@@ -114,9 +114,16 @@ public:
      */
     void apply_push_value(const key_t& key, const push_val_t& push_val)
     {
+        //RAW_LOG_INFO ("apply_push key:\t%d", key);
         push_param_t *param = nullptr;
-        // TODO improve this in fix mode?
-        CHECK( _table->find(key, param) ) << "new key should be inited before";
+        /*
+        if (!_table ->find(key, param)) {
+            RAW_LOG_ERROR ("skip unknown key:\t%d", key);
+            return;
+        }
+        */
+        //TODO improve this in fix mode?
+        CHECK( _table->find(key, param) ) << "new key should be inited before:\t" << key;
         CHECK_NOTNULL(param);
         /*
         DLOG(INFO) << "to apply push val: key:\t" << key 
