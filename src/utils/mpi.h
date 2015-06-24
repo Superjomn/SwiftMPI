@@ -22,7 +22,6 @@ public:
     }
 
     static void initialize (int argc, char** argv) {
-        LOG (INFO) << "init MPI ...";
         MPI_Init(&argc, &argv);
     }
 

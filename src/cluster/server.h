@@ -46,6 +46,7 @@ public:
      */
     void load(const std::string& path) {
         std::ifstream file(path.c_str());
+        CHECK (file.is_open()) << "[file] " << path << " can't be opened";
         auto& hashfrag = global_hashfrag<key_t>();
         const auto server_id = _transfer.client_id();
         key_t key;

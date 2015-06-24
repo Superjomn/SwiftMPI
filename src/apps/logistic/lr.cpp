@@ -124,6 +124,7 @@ bool parse_instance2(const std::string &line, Instance &ins) {
     return true;
 }
 
+typedef ClusterServer<lr_key_t, LRParam, LRLocalParam, LRLocalGrad, LRPullAccessMethod, LRPushAccessMethod> server_t;
 
 class LR {
 public:
@@ -223,6 +224,11 @@ public:
         }
         LOG(WARNING) << "finish training ...";
     }
+
+    void load_param (const std::string &path) {
+        global_server<server_t>().load(path);
+    }
+protected:
     /**
      * @brief gather keys within a minibatch
      * @param file file with fopen
@@ -291,6 +297,7 @@ public:
         return error * error;
     }
 
+
 protected:
     /**
      * get local keys and init local parameter cache
@@ -344,28 +351,47 @@ private:
 };
 
 // gflags
+DEFINE_bool   (to_train, true, "train/predict mode, true/false");
 DEFINE_string (dataset, "data.txt", "path of the dataset");
 DEFINE_string (config, "demo.conf", "path of the config file");
-DEFINE_int32 (niters, 3, "number of iterations");
+DEFINE_int32  (niters, 3, "number of iterations (in train mode)");
+DEFINE_string (param_path, "", "path of parameter (in predict mode)");
 
 int main(int argc, char** argv) {
     GlobalMPI::initialize(argc, argv);
+    std::string usage = "\n";
+    usage += "-----------------------------------------------------------------\n";
+    usage += "An Implementation of Distributed Logistic Regression Algorithm \nbased on SwiftMPI\n";
+    usage += "-----------------------------------------------------------------\n";
+    usage += "Author: Chunwei Yan <yanchunwei@outlook.com>\n";
+    usage += "\nUsage:\n\n";
+    usage += "Train Mode:\n";
+    usage += "    <MPI_ARGS>" + std::string(argv[0]) + " -config <path> -niters <number> -dataset <path>\n";
+    usage += "\nPredict Mode:\n";
+    usage += "    <MPI_ARGS>" + std::string(argv[0]) + " -config <path> -dataset <path> -param_path <path> -out_prefix <string>";
+    google::SetUsageMessage(usage);
     google::ParseCommandLineFlags(&argc, &argv, true);
-    //string path = "data.txt";
-    //string conf = "demo.conf";
+    // load configs
     global_config().load_conf(FLAGS_config);
     global_config().parse();
-    typedef ClusterServer<lr_key_t, LRParam, LRLocalParam, LRLocalGrad, LRPullAccessMethod, LRPushAccessMethod> server_t;
+    // init cluster
     Cluster<ClusterWorker, server_t, lr_key_t> cluster;
     cluster.initialize();
-
     LR lr(FLAGS_dataset, FLAGS_niters);
-    lr.train();
+    // to train
+    if (FLAGS_to_train) { 
+        lr.train();
+        std::string out_param_path = global_config().get_config("server", "out_param_prefix").to_string();
+        swift_snails::format_string(out_param_path, "-%d.txt", global_mpi().rank());
+        RAW_LOG_WARNING ("server output parameter to %s", out_param_path.c_str());
+        cluster.finalize(out_param_path);
+    // to predict
+    } else {
+        CHECK(!FLAGS_param_path.empty()) << "argument [param_path] should be set in predict mode";
+        lr.load_param(FLAGS_param_path);
+        cluster.finalize();
+    }
     
-    std::string out_param_path = global_config().get_config("server", "out_param_prefix").to_string();
-    swift_snails::format_string(out_param_path, "-%d.txt", global_mpi().rank());
-    RAW_LOG_WARNING ("server output parameter to %s", out_param_path.c_str());
-    cluster.finalize(out_param_path);
     LOG(WARNING) << "cluster exit.";
 
     return 0;

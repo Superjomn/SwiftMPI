@@ -14,9 +14,15 @@ Similar to libfm's input format:
 
 Usage
 ------
-    ./bin/logistic --help
+    ./bin/logistic --helpshort
 
-    ./bin/logistic -config <config path> -dataset <dataset path>
+Train Mode:
+
+    ./bin/logistic -config <config path> -dataset <dataset path> -niters <number of iterations>
+
+Predict Mode:
+
+    ./bin/logistic -config <config path> -dataset <dataset path> -param_path <path of parameter> -out <path to output predictions>
 
 Configuration
 ---------------
