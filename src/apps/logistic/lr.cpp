@@ -22,9 +22,13 @@ struct LRLocalGrad {
     }
 };
 
-std::ostream& operator<< (std::ostream& os, LRParam &param) {
+std::ostream& operator<< (std::ostream& os, const LRParam &param) {
     os << param.val;
     return os;
+}
+std::istream& operator>> (std::istream& is, LRParam &param) {
+    is >> param.val;
+    return is;
 }
 BinaryBuffer& operator<< (BinaryBuffer &bb, LRLocalGrad &grad) {
     //CHECK_GT(grad.count, 0);

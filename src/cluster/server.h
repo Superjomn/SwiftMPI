@@ -41,6 +41,23 @@ public:
         init_push_method();
     }
     /**
+     * @brief load parameter from a file
+     * used in prediction period
+     */
+    void load(const std::string& path) {
+        std::ifstream file(path.c_str());
+        auto& hashfrag = global_hashfrag<key_t>();
+        const auto server_id = _transfer.client_id();
+        key_t key;
+        param_t param;
+        while (!file.eof()) {
+            file >> key >> param;
+            if (hashfrag.to_node_id(key) == server_id) {
+                _sparsetable.assign(key, param);
+            }
+        }
+    }
+    /**
      * @brief called when worker finish working
      */
     void finalize(const std::string& path="") {
