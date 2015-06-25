@@ -405,7 +405,7 @@ private:
 };
 
 // gflags
-DEFINE_int32  (mode, 0, "train/predict mode, 0/1");
+DEFINE_string  (mode, "train", "train/predict");
 DEFINE_string (dataset, "data.txt", "path of the dataset");
 DEFINE_string (config, "demo.conf", "path of the config file");
 DEFINE_int32  (niters, 3, "number of iterations (in train mode)");
@@ -421,9 +421,9 @@ int main(int argc, char** argv) {
     usage += "Author: Chunwei Yan <yanchunwei@outlook.com>\n";
     usage += "\nUsage:\n\n";
     usage += "Train Mode:\n";
-    usage += "    <MPI_ARGS>" + std::string(argv[0]) + "-mode 0 -config <path> -niters <number> -dataset <path>\n";
+    usage += "    <MPI_ARGS>" + std::string(argv[0]) + " -mode train -config <path> -niters <number> -dataset <path>\n";
     usage += "\nPredict Mode:\n";
-    usage += "    <MPI_ARGS>" + std::string(argv[0]) + "-mode 1 -config <path> -dataset <path> -param_path <path> -out_prefix <string>";
+    usage += "    <MPI_ARGS>" + std::string(argv[0]) + " -mode predict -config <path> -dataset <path> -param_path <path> -out_prefix <string>";
     google::SetUsageMessage(usage);
     google::ParseCommandLineFlags(&argc, &argv, true);
     // load configs
@@ -434,7 +434,7 @@ int main(int argc, char** argv) {
     cluster.initialize();
     LR lr(FLAGS_dataset, FLAGS_niters);
     // to train
-    if (FLAGS_mode == 0) { 
+    if (FLAGS_mode == "train") { 
         lr.train();
         std::string out_param_path = global_config().get_config("server", "out_param_prefix").to_string();
         swift_snails::format_string(out_param_path, "-%d.txt", global_mpi().rank());

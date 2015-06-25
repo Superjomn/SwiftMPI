@@ -28,7 +28,7 @@ public:
      * do not change now , because message_class will only be changed 
      * before read
      */
-    void add (index_t id, Handler&& handler) {
+    void add (index_t id, Handler&& handler) noexcept {
         LOG(INFO) << "register message class: " << id;
         std::lock_guard<SpinLock> lock(_spinlock);
         is_writing = true;
@@ -38,7 +38,7 @@ public:
         is_writing = false;
     }
 
-    void remove (index_t id) {
+    void remove (index_t id) noexcept {
         std::lock_guard<SpinLock> lock(_spinlock);
         is_writing = true;
         auto pos = _message_classes.find(id);
@@ -48,7 +48,7 @@ public:
         is_writing = false;
     }
 
-    Handler& get (index_t id) {
+    Handler& get (index_t id) noexcept {
         auto it = _message_classes.find(id); 
         CHECK(it != _message_classes.end());
         return it->second;
@@ -79,19 +79,19 @@ public:
         set_zmq_ctx(_route.zmq_ctx());
     }
     // init later
-    void init_async_channel(int thread_num) {
+    void init_async_channel(int thread_num) noexcept {
         CHECK(!_async_channel) << "async channel has been created";
         AsynExec as(thread_num);
         _async_channel = as.open();
     }
-    void set_client_id(int client_id) {
+    void set_client_id(int client_id) noexcept {
         _client_id = client_id;
     }
     /**
      * \param request request
      * \param to_id  id of the node where the message is sent to
      */
-    void send(Request &&request, int to_id) {
+    void send(Request &&request, int to_id) noexcept {
         index_t msg_id = _msg_id_counter++;
         request.set_msg_id(msg_id);
         CHECK(_client_id != -3) << "shoud set client_id first";
@@ -133,7 +133,7 @@ public:
      *  receive request  and run corresponding message-class-handler
      *  receive reply message, read the reply message and run the correspondding handler
      */
-    void main_loop() {
+    void main_loop() noexcept {
         Package package;
         Request::response_call_back_t handler;
         for(;;) {
@@ -162,7 +162,7 @@ public:
     /** handle the request from other node
      * and run message_class-handler
      */
-    void handle_request(std::shared_ptr<Request> request) {
+    void handle_request(std::shared_ptr<Request> request) noexcept {
 
         msgcls_handler_t handler = _message_class.get( request->meta.message_class);
         CHECK(!_async_channel->closed());
@@ -194,7 +194,7 @@ public:
     /** handle the response from other node
      * and run response-callback handler
      */
-    void handle_response(std::shared_ptr<Request> &response) {
+    void handle_response(std::shared_ptr<Request> &response) noexcept {
         Request::response_call_back_t handler;
         // NOTE: allow client_id == 0 , when the cluster's route has not been created
         CHECK((_client_id >=-1 && _client_id <= 0) || response->meta.client_id == client_id()) 
@@ -221,7 +221,7 @@ public:
         );
     }
 
-    void send_response(Request &&request, int to_id) {
+    void send_response(Request &&request, int to_id) noexcept {
         CHECK_GT( global_route().send_addrs().count(to_id), 0) 
             << "to_id(" << to_id << ") is not valid";
         request.meta.client_id = to_id;
@@ -240,19 +240,19 @@ public:
         }
     }
 
-    int client_id() const {
+    int client_id() const noexcept {
         return _client_id;
     }
-    Route& route() {
+    Route& route() noexcept {
         return _route;
     }
-    std::shared_ptr<AsynExec::channel_t>& async_channel() {
+    std::shared_ptr<AsynExec::channel_t>& async_channel() noexcept {
         return _async_channel;
     }
     // determine whether all sended message get a 
     // reply
     // Attention: not thread safe!
-    bool service_complete() {
+    bool service_complete() noexcept {
         return _msg_handlers.empty();
     }
     /**
@@ -260,7 +260,7 @@ public:
      *
      * control Receiver service by adding handler to message_class
      */
-    MessageClass<msgcls_handler_t>& message_class() {
+    MessageClass<msgcls_handler_t>& message_class() noexcept {
         return _message_class;
     }
 
