@@ -358,30 +358,6 @@ protected:
 
 protected:
     /**
-     * get local keys and init local parameter cache
-     */
-    void init_keys() {
-        string line;
-        bool parse_res;
-        LOG(WARNING) << "init local keys from path:\t" << _path << "...";
-        ifstream file(_path);
-        CHECK (file.is_open()) << "file not opened!\t" << _path;
-        Instance ins;
-        _local_keys.clear();
-        while(getline(file, line)) {
-            ins.clear();
-            parse_res = parse_instance2(line, ins);
-            if (! parse_res) continue;
-            for (const auto& item : ins.feas) {
-                _local_keys.insert(item.first);
-            }
-        }
-        RAW_LOG_WARNING ("... to init local parameter cache");
-        _param_cache.init_keys(_local_keys);
-        file.close();
-        RAW_LOG_WARNING (">>> finish init keys");
-    }
-    /**
      * query parameters contained in local cache from remote server
      */
     void pull() {
