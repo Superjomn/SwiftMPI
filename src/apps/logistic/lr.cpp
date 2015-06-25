@@ -150,7 +150,12 @@ public:
 
     void train() {
         // init server-side parameter
-        init_keys();
+        FILE* file = fopen(_path.c_str(), "rb");
+        // init keys
+        gather_keys(file);
+        RAW_LOG_WARNING ("... to init local parameter cache");
+        _param_cache.init_keys(_local_keys);
+
         LOG (WARNING) << "... first pull to init local_param_cache";
         pull();
         LOG (WARNING) << ">>> end pull()";
@@ -162,7 +167,6 @@ public:
         SpinLock spinlock;
         double total_error {0}; int nrecords {0};
 
-        FILE* file = fopen(_path.c_str(), "rb");
         // first to init local keys
         //gather_keys(file);
 
