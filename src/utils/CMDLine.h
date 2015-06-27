@@ -9,6 +9,7 @@
 #define CMDLINE_H_
 
 #include <map>
+#include <string>
 #include <vector>
 namespace fms {
 

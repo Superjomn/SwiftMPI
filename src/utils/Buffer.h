@@ -7,9 +7,12 @@
 //
 #ifndef SwiftSnails_utils_Buffer_h_
 #define SwiftSnails_utils_Buffer_h_
+#include <iostream>
+#include <sstream>
+#include <string>
 #include "common.h"
 #include "string.h"
-//#include "../SwiftSnails/Message.h"
+
 namespace swift_snails {
 
 class BasicBuffer {

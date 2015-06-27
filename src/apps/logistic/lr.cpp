@@ -60,7 +60,7 @@ class LRPushAccessMethod : public PushAccessMethod<lr_key_t, LRParam, LRLocalGra
 {
 public:
     LRPushAccessMethod() :
-        initial_learning_rate( global_config().get_config("server", "initial_learning_rate").to_float())
+        initial_learning_rate( global_config().get("server", "initial_learning_rate").to_float())
     { }
     /**
      * grad should be normalized before pushed
@@ -133,8 +133,8 @@ public:
     typedef LocalParamCache<lr_key_t, LRLocalParam, LRLocalGrad> param_cache_t;
 
     LR (const string& path, int niters) : 
-        _minibatch (global_config().get_config("worker", "minibatch").to_int32()),
-        _nthreads (global_config().get_config("worker", "nthreads").to_int32()),
+        _minibatch (global_config().get("worker", "minibatch").to_int32()),
+        _nthreads (global_config().get("worker", "nthreads").to_int32()),
         _pull_access (global_pull_access<lr_key_t, LRLocalParam, LRLocalGrad>()),
         _push_access (global_push_access<lr_key_t, LRLocalParam, LRLocalGrad>()),
         _niters (niters)
@@ -416,7 +416,7 @@ int main(int argc, char** argv) {
     // to train
     if (FLAGS_mode == "train") { 
         lr.train();
-        std::string out_param_path = global_config().get_config("server", "out_param_prefix").to_string();
+        std::string out_param_path = global_config().get("server", "out_param_prefix").to_string();
         swift_snails::format_string(out_param_path, "-%d.txt", global_mpi().rank());
         RAW_LOG_WARNING ("server output parameter to %s", out_param_path.c_str());
         cluster.finalize(out_param_path);

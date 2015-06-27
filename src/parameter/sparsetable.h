@@ -96,7 +96,7 @@ public:
     typedef SparseTableShard<key_t, value_t> shard_t;
 
     SparseTable() {
-        _shard_num = global_config().get_config("server", "shard_num").to_int32();
+        _shard_num = global_config().get("server", "shard_num").to_int32();
         _shards.reset(new shard_t[shard_num()]);
     }
 

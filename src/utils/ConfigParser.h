@@ -67,7 +67,7 @@ public:
     // to_int32()
     // to_string()
     // to_bool()
-    const Item& get_config(const std::string &session, const std::string &key) {
+    const Item& get(const std::string &session, const std::string &key) {
         auto &s = _session[session];
         auto p = s.find(key);
         CHECK(p != s.end()) << "no such key:\t[" << session << "]\t" << key;

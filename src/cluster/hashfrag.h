@@ -38,7 +38,7 @@ public:
     void init() {
         CHECK(num_nodes() > 0);
         //num_nodes = global_config().register_config("init_node_num").to_int32();
-        _num_frags = global_config().get_config("server", "frag_num").to_int32();
+        _num_frags = global_config().get("server", "frag_num").to_int32();
         _map_table.reset(new index_t[num_frags()]);
         // divide the fragments
         int num_frag_each_node = int(num_frags() / num_nodes() );

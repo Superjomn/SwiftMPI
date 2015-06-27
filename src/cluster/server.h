@@ -103,9 +103,9 @@ void \
 ClusterServer<Key, Param, PullVal, Grad, PullAccessMethod, PushAccessMethod>::\
 init_transfer() {
     LOG(WARNING) << "init server's transfer ...";
-    std::string listen_addr = global_config().get_config("server", "listen_addr").to_string();
-    int service_thread_num = global_config().get_config("server", "listen_thread_num").to_int32();
-    int async_thread_num = global_config().get_config("server", "async_exec_num").to_int32();
+    std::string listen_addr = global_config().get("server", "listen_addr").to_string();
+    int service_thread_num = global_config().get("server", "listen_thread_num").to_int32();
+    int async_thread_num = global_config().get("server", "async_exec_num").to_int32();
     if(!listen_addr.empty()) {
         _transfer.listen(listen_addr);
     } else {
