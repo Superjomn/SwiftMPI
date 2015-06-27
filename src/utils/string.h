@@ -89,8 +89,14 @@ std::string format_string(const char* format, ARGS... args) {
 
 class LineFileReader : public VirtualObject {
 public:
+    LineFileReader(FILE* f) :
+        _file(f) 
+    { }
     ~LineFileReader() {
         ::free(_buffer);
+    }
+    char* getline() {
+        return getline(_file);
     }
     char* getline(FILE* f) {
         return this->getdelim(f, '\n');
@@ -119,6 +125,7 @@ private:
     char* _buffer = NULL;
     size_t _buf_size = 0;
     size_t _length = 0;
+    FILE* _file = nullptr;
 };
 
 
@@ -128,6 +135,16 @@ inline size_t count_spaces (const char* s) {
         count ++;
     }
     return count;
+}
+
+
+template<typename T = unsigned int>
+T BKDRHash(char* str, T seed = 13131) {
+    T hash = 0;
+    while (*str) {
+        hash = hash * seed + (*str ++);
+    }
+    return hash;
 }
 
 
