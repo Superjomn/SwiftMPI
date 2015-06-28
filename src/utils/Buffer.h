@@ -204,6 +204,7 @@ public:
     SS_REPEAT6(int16_t, uint16_t, int32_t, uint32_t, int64_t, uint64_t)
     SS_REPEAT2(double, float)
     SS_REPEAT1(bool)
+    SS_REPEAT1(size_t)
     SS_REPEAT1(byte_t)
     #undef SS_REPEAT_PATTERN
 

@@ -92,6 +92,8 @@ public:
     LineFileReader(FILE* f) :
         _file(f) 
     { }
+    LineFileReader() 
+    { }
     ~LineFileReader() {
         ::free(_buffer);
     }
@@ -139,7 +141,7 @@ inline size_t count_spaces (const char* s) {
 
 
 template<typename T = unsigned int>
-T BKDRHash(char* str, T seed = 13131) {
+T BKDRHash(const char* str, T seed = 13131) {
     T hash = 0;
     while (*str) {
         hash = hash * seed + (*str ++);
