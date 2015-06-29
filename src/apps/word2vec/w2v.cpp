@@ -76,7 +76,10 @@ struct WLocalGrad {
 };
 
 std::ostream& operator<< (std::ostream& os, const WParam &param) {
-    os << param.v << "\t" << param.h;
+    for (int i = 0; i < len_vec() - 1; i++) os << param.v[i] << " ";
+    os << param.v[len_vec() - 1] << "\t";
+    for (int i = 0; i < len_vec() - 1; i++) os << param.h[i] << " ";
+    os << param.h[len_vec() - 1];
     return os;
 }
 std::istream& operator>> (std::istream& is, WParam &param) {
