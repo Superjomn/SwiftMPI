@@ -1,4 +1,4 @@
-#include <gflags/gflags.h>
+//#include <gflags/gflags.h>
 #include <functional>
 #include "../../swiftmpi.h"
 using namespace swift_snails;
@@ -50,33 +50,34 @@ struct WLocalParam {
  */
 struct WLocalGrad {
     Vec h_grad, v_grad;
-    int count = 0;
+    int h_count = 0, v_count = 0;
 
     WLocalGrad() {
         h_grad.init(len_vec());
         v_grad.init(len_vec());
-        count = 0;
+        h_count = 0; v_count = 0;
     }
 
     void accu_h(const Vec& grad) {
-        count ++;
+        h_count ++;
         h_grad += grad;
     }
 
     void accu_v(const Vec& grad) {
-        count ++;
+        v_count ++;
         v_grad += grad;
     }
 
     void reset() {
         h_grad.clear();
         v_grad.clear();
-        count = 0;
+        h_count = 0; v_count = 0;
     }
 };
 
 std::ostream& operator<< (std::ostream& os, const WParam &param) {
     os << param.v << "\t" << param.h;
+    return os;
 }
 std::istream& operator>> (std::istream& is, WParam &param) {
     for (int i = 0; i < len_vec(); i++) {
@@ -85,33 +86,38 @@ std::istream& operator>> (std::istream& is, WParam &param) {
     for (int i = 0; i < len_vec(); i++) {
         is >> param.h[i];
     }
+    return is;
 }
 BinaryBuffer& operator<< (BinaryBuffer &bb, WLocalGrad &grad) {
-    CHECK_GT (grad.count, 0);
-    grad.h_grad /= grad.count;
-    grad.v_grad /= grad.count;
+    //CHECK_GT (grad.count, 0);
+    if (grad.h_count > 0) grad.h_grad /= grad.h_count;
+    if (grad.v_count > 0) grad.v_grad /= grad.v_count;
     for (int i = 0; i < len_vec(); i++) {
         bb << grad.h_grad[i];
         bb << grad.v_grad[i];
     }
+    return bb;
 }
 BinaryBuffer& operator>> (BinaryBuffer &bb, WLocalGrad &grad) {
     for (int i = 0; i < len_vec(); i++) {
         bb >> grad.h_grad[i];
         bb >> grad.v_grad[i];
     }
+    return bb;
 }
 BinaryBuffer& operator<< (BinaryBuffer &bb, WLocalParam &param) {
     for (int i = 0; i < len_vec(); i++) {
         bb << param.h[i]; 
         bb << param.v[i];
     }
+    return bb;
 }
 BinaryBuffer& operator>> (BinaryBuffer &bb, WLocalParam &param) {
     for (int i = 0; i < len_vec(); i++) {
         bb >> param.h[i]; 
         bb >> param.v[i];
     }
+    return bb;
 }
 
 class WPullAccessMethod : public PullAccessMethod<w2v_key_t, WParam, WLocalParam>
@@ -134,6 +140,7 @@ public:
     { }
     virtual void apply_push_value(const w2v_key_t &key, param_t &param, const grad_t& push_val) noexcept 
     {
+        //LOG (INFO) << "apply push  " << key << "  param:" << param << "grad  " << push_val.h_grad << "  " << push_val.v_grad;
         param.h2sum += push_val.h_grad * push_val.h_grad;
         param.v2sum += push_val.v_grad * push_val.v_grad;
         param.h2sum += initial_learning_rate * push_val.h_grad / (swift_snails::sqrt(param.h2sum + fudge_factor));
@@ -201,7 +208,7 @@ public:
 	    }
     }
 
-    real_t operator() (real_t f) {
+    real_t operator() (real_t f) noexcept {
         return _table[ (int) ((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))];
     }
 
@@ -252,23 +259,24 @@ public:
     }
 
     void pull() noexcept {
+        LOG (INFO) << "... pull()";
         _pull_access.pull_with_barrier(_local_keys, _param_cache);
+        LOG (INFO) << ">>> pull()";
+        gen_unigram_table();
     }
     /**
      * update server-side parameters with local grad
      */
     void push() noexcept {
         _push_access.push_with_barrier(_local_keys, _param_cache);
-        _local_keys.clear();
-        _word_freq.clear();
-        _wordids.clear();
+        clear();
     }
     /**
      * gather keys within a minibatch
      *
      * @param minibatch size of the minibatch
      */
-    void gather_keys (FILE* file, int minibatch = 0) {
+    size_t gather_keys (FILE* file, int minibatch = 0) noexcept {
         long cur_pos = ftell(file);
         std::atomic<int> line_count {0};
         LineFileReader line_reader;
@@ -311,9 +319,25 @@ public:
             }
         };
         async_exec(_nthreads, handler, global_channel());
-        //RAW_LOG(INFO, "collect %d keys", _local_keys.size());
+        RAW_LOG(INFO, "collect %d keys", _local_keys.size());
         fseek(file, cur_pos, SEEK_SET);
+        return _local_keys.size();
     }
+
+    param_cache_t& param() noexcept {
+        return _param_cache;
+    }
+
+    w2v_key_t* table() noexcept {
+        return _table;
+    }
+
+    void clear() noexcept {
+        _local_keys.clear();
+        _word_freq.clear();
+        _wordids.clear();
+    }
+protected:
     /**
      * generate hashtable for Word2Vec's negative-samping
      */
@@ -328,7 +352,7 @@ public:
 		int a, i;
 		double train_words_pow = 0;
 		double d1, power = 0.75;
-        if(_table == NULL) _table = new w2v_key_t[table_size];
+        if(_table == nullptr) _table = new w2v_key_t[table_size];
         for (const auto& item : _word_freq) {
             train_words_pow += std::pow(item.second, power);
         }
@@ -342,14 +366,6 @@ public:
             }
             if (i >= _word_freq.size()) i = _word_freq.size() - 1;
         }
-    }
-
-    param_cache_t& param() noexcept {
-        return _param_cache;
-    }
-
-    w2v_key_t* table() noexcept {
-        return _table;
     }
 private:
     /**
@@ -402,19 +418,23 @@ public:
 
     void train() {
         LOG (WARNING) << "init train ...";
+        LOG (INFO) << "first pull to init parameter";
         FILE* file = fopen(_path.c_str(), "rb");
-        _minibatch.gather_keys(file);
+        if (_minibatch.gather_keys(file) < 5) return;
         _minibatch.pull();
-        float error;
+        global_mpi().barrier();
+        _minibatch.clear();
 
+        float error;
         for (int i = 0; i < _niters; i++) {
+            LOG (INFO) << "iter\t" << i;
             error = train_iter(_path);
-            LOG(INFO) << i << "th training error\t" << error;
+            LOG (INFO) << "iter\t" << i << "\terror:\t" << error;
         }
         fclose(file);
     }
 
-    float train_iter(const std::string& path) {
+    float train_iter(const std::string& path) noexcept {
         CHECK_GT(_batchsize, 0);
         FILE* file = fopen(_path.c_str(), "rb");
         std::mutex file_mut;
@@ -441,14 +461,17 @@ public:
                     Vec neu1(len_vec()), neu1e(len_vec());
                     learn_instance(ins, neu1, neu1e);
                     line_count ++;
+                    //LOG (INFO) << "line count:\t" << int(line_count);
                     if (line_count > _batchsize) break;
                     if (feof(file)) break;
                 }
         };
         while (true) {
-            _minibatch.gather_keys(file, _batchsize);
+            line_count = 0;
+            if (_minibatch.gather_keys(file, _batchsize) < 5) break;
             _minibatch.pull();
             async_exec(_nthreads, handler, global_channel());
+            LOG (INFO) << "... push()";
             _minibatch.push();
         }
         fclose(file);
@@ -456,7 +479,7 @@ public:
     }
 
 protected:
-    void learn_instance (Instance &ins, Vec& neu1, Vec& neu1e) {
+    void learn_instance (Instance &ins, Vec& neu1, Vec& neu1e) noexcept {
         neu1.clear(); neu1e.clear();
         int a, c, b = global_random()() % _window;
         int sent_length = ins.words.size();
@@ -523,7 +546,54 @@ private:
     Error _error;
 };  // end class Word2Vec
 
-int main() {
+using namespace std;
+int main(int argc, char* argv[]) {
+    GlobalMPI::initialize(argc, argv);
+    // init config
+    fms::CMDLine cmdline(argc, argv);
+    std::string param_help         = cmdline.registerParameter("help",   "this screen");
+    std::string param_config_path  = cmdline.registerParameter("config", "path of config file          \t[string]");
+    std::string param_data_path    = cmdline.registerParameter("data",   "path of dataset, text only!  \t[string]");
+    std::string param_niters       = cmdline.registerParameter("niters", "number of iterations         \t[int]");
+    std::string param_param_output = cmdline.registerParameter("output", "path to output the parameters\t[string]");
+
+    if(cmdline.hasParameter(param_help) || argc == 1) {
+        cout << endl;
+        cout << "===================================================================" << endl;
+        cout << "   Word2Vec application" << endl;
+        cout << "   Author: Suprjom <yanchunwei@outlook.com>" << endl;
+        cout << "===================================================================" << endl;
+        cmdline.print_help();
+        cout << endl;
+        cout << endl;
+        return 0;
+    }
+    if (!cmdline.hasParameter(param_config_path) ||
+        !cmdline.hasParameter(param_data_path) ||
+        !cmdline.hasParameter(param_niters)
+    ) {
+        LOG(ERROR) << "missing parameter";
+        cmdline.print_help();
+        return 0;
+    }
+    std::string config_path = cmdline.getValue(param_config_path);
+    std::string data_path   = cmdline.getValue(param_data_path);
+    std::string output_path = cmdline.getValue(param_param_output);
+    int niters              = stoi(cmdline.getValue(param_niters));
+    global_config().load_conf(config_path);
+    global_config().parse();
+
+    // init cluster
+    Cluster<ClusterWorker, server_t, w2v_key_t> cluster;
+    cluster.initialize();
+
+    Word2Vec w2v(data_path, niters);
+    w2v.train();
+    swift_snails::format_string(output_path, "-%d.txt", global_mpi().rank());
+    RAW_LOG_WARNING ("server output parameter to %s", output_path.c_str());
+    cluster.finalize(output_path);
+
+    LOG(WARNING) << "cluster exit.";
 
     return 0;
 }

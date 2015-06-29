@@ -2,7 +2,7 @@ CXX=mpicxx
 CC=gcc
 BIN=./bin
 
-CXXFLAGS= -g -std=c++11 -pthread -lpthread -lgtest -lgtest_main -lzmq -lglog -lz -lgflags
+CXXFLAGS= -g -O3 -std=c++11 -pthread -lpthread -lgtest -lgtest_main -lzmq -lglog -lz -lgflags
 LOCAL_ROOT=../../../third/local
 
 THIRD_INCPATH=-isystem $(LOCAL_ROOT)/include \
