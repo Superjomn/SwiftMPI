@@ -79,6 +79,11 @@ struct WLocalGrad {
         v_grad.clear();
         h_count = 0; v_count = 0;
     }
+
+    void norm() {
+        if (h_count > 0) h_grad /= static_cast<float>(h_count);
+        if (v_count > 0) h_grad /= static_cast<float>(v_count);
+    }
 };
 
 std::ostream& operator<< (std::ostream& os, const WParam &param) {
@@ -155,8 +160,8 @@ public:
         param.is_sent = push_val.is_sent;
         param.h2sum += push_val.h_grad * push_val.h_grad;
         param.v2sum += push_val.v_grad * push_val.v_grad;
-        param.h2sum += initial_learning_rate * push_val.h_grad / (swift_snails::sqrt(param.h2sum + fudge_factor));
-        param.v2sum += initial_learning_rate * push_val.v_grad / (swift_snails::sqrt(param.v2sum + fudge_factor));
+        param.h += initial_learning_rate * push_val.h_grad / (swift_snails::sqrt(param.h2sum + fudge_factor));
+        param.v += initial_learning_rate * push_val.v_grad / (swift_snails::sqrt(param.v2sum + fudge_factor));
     }
 private:
     float initial_learning_rate;
@@ -273,7 +278,7 @@ public:
         }
     }
 
-    void pull() noexcept {
+    void pull() {
         LOG (INFO) << "... pull()";
         _pull_access.pull_with_barrier(_local_keys, _param_cache);
         LOG (INFO) << ">>> pull()";
@@ -282,7 +287,7 @@ public:
     /**
      * update server-side parameters with local grad
      */
-    void push() noexcept {
+    void push() {
         _push_access.push_with_barrier(_local_keys, _param_cache);
         clear();
     }
@@ -291,7 +296,7 @@ public:
      *
      * @param minibatch size of the minibatch
      */
-    size_t gather_keys (FILE* file, int minibatch = 0) noexcept {
+    size_t gather_keys (FILE* file, int minibatch = 0) {
         long cur_pos = ftell(file);
         std::atomic<int> line_count {0};
         LineFileReader line_reader;
@@ -356,7 +361,7 @@ protected:
     /**
      * generate hashtable for Word2Vec's negative-samping
      */
-    void gen_unigram_table() noexcept {
+    void gen_unigram_table() {
 		LOG(INFO)<< "... init_unigram_table";
 		CHECK_GT(_word_freq.size(), 0) << "word_freq should be inited before";
         // init wordids
@@ -501,9 +506,12 @@ protected:
         int label;
         float g, f;
         w2v_key_t word, target, last_word;
+
         for (pos = 0; pos < sent_length; pos ++) {
             word = ins.words[pos];
             neu1.clear(); neu1e.clear();
+            b = global_random()() % _window;
+
             for (a = b; a < _window * 2 + 1 - b; a++) {
                 if (a != _window) {
                     c = pos - _window + a;

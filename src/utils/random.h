@@ -2,7 +2,7 @@
 #include <random>
 
 namespace swift_snails {
-
+/*
 inline std::default_random_engine& local_random_engine() {
     struct engine_wrapper_t {
         std::default_random_engine engine;
@@ -15,6 +15,7 @@ inline std::default_random_engine& local_random_engine() {
     static thread_local engine_wrapper_t r;
     return r.engine;
 }
+*/
 
 /**
  * @brief simple way to generate random int
