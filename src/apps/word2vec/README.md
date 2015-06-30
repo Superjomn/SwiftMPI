@@ -37,10 +37,13 @@ To train a text dataset with a MPI cluster, you can follow the following steps:
 1. Distribute the data set to the cluster, allocate each node a file in the same path;
 2. Configure MPI cluster;
 3. Configure Word2Vec (check demo.conf);
-4. Run Word2Vec:
+4. Run Word2Vec
 
+with command:
 
     MPI_command ./bin/word2vec -config <path> -data <path> -niters <number> -output <path>
+
+`MPI_command` is MPI's command, like `mpirun -np 20` ...
 
 After training, cluster will output word vectors to `output path` in each node.
 
