@@ -25,6 +25,7 @@ To display help infomation, type:
 
     ./bin/word2vec
 or
+
     ./bin/word2vec --help
 
 To train a text file locally:
@@ -38,9 +39,10 @@ To train a text dataset with a MPI cluster, you can follow the following steps:
 3. Configure Word2Vec (check demo.conf);
 4. Run Word2Vec:
 
-    <MPI command> ./bin/word2vec -config <path> -data <path> -niters <number> -output <path>
 
-After training, cluster will output word vectors to <output path> in each node.
+    MPI_command ./bin/word2vec -config <path> -data <path> -niters <number> -output <path>
+
+After training, cluster will output word vectors to `output path` in each node.
 
 Output Format
 --------------
