@@ -26,6 +26,9 @@ typedef size_t w2v_key_t;
  */
 struct WParam {
     Vec h, v, h2sum, v2sum;
+    // sentence vector or not
+    // used in sent2vec
+    bool is_sent = false;
 
     WParam() {
         h.init(len_vec());    h.random();
@@ -51,6 +54,9 @@ struct WLocalParam {
 struct WLocalGrad {
     Vec h_grad, v_grad;
     int h_count = 0, v_count = 0;
+    // sentence vector or not
+    // used in sent2vec
+    bool is_sent = false;
 
     WLocalGrad() {
         h_grad.init(len_vec());
@@ -93,6 +99,7 @@ std::istream& operator>> (std::istream& is, WParam &param) {
 }
 BinaryBuffer& operator<< (BinaryBuffer &bb, WLocalGrad &grad) {
     //CHECK_GT (grad.count, 0);
+    bb << grad.is_sent;
     if (grad.h_count > 0) grad.h_grad /= grad.h_count;
     if (grad.v_count > 0) grad.v_grad /= grad.v_count;
     for (int i = 0; i < len_vec(); i++) {
@@ -102,6 +109,7 @@ BinaryBuffer& operator<< (BinaryBuffer &bb, WLocalGrad &grad) {
     return bb;
 }
 BinaryBuffer& operator>> (BinaryBuffer &bb, WLocalGrad &grad) {
+    bb >> grad.is_sent;
     for (int i = 0; i < len_vec(); i++) {
         bb >> grad.h_grad[i];
         bb >> grad.v_grad[i];
@@ -144,6 +152,7 @@ public:
     virtual void apply_push_value(const w2v_key_t &key, param_t &param, const grad_t& push_val) noexcept 
     {
         //LOG (INFO) << "apply push  " << key << "  param:" << param << "grad  " << push_val.h_grad << "  " << push_val.v_grad;
+        param.is_sent = push_val.is_sent;
         param.h2sum += push_val.h_grad * push_val.h_grad;
         param.v2sum += push_val.v_grad * push_val.v_grad;
         param.h2sum += initial_learning_rate * push_val.h_grad / (swift_snails::sqrt(param.h2sum + fudge_factor));
@@ -158,9 +167,12 @@ const float WPushAccessMethod::fudge_factor = 1e-6;
 struct Instance {
     std::vector<w2v_key_t> words;
 
+    w2v_key_t sent_id;
+
     void clear() {
         // clear data but not free memory
         words.clear();
+        sent_id = -1;
     }
 };  // end struct Instance
 
@@ -176,7 +188,7 @@ bool parse_instance(const std::string &line, Instance &ins) noexcept {
     static int min_length = 0;
     if (min_length == 0) 
         min_length = global_config().get("word2vec", "min_sentence_length").to_int32();
-
+    ins.sent_id = hash_fn(line.c_str());
     auto words = std::move(swift_snails::split(line, " "));
     for (const auto& word : words) {
         ins.words.push_back(hash_fn(word.c_str()));
@@ -335,7 +347,7 @@ public:
         return _table;
     }
 
-    void clear() noexcept {
+    virtual void clear() noexcept {
         _local_keys.clear();
         _word_freq.clear();
         _wordids.clear();
@@ -370,7 +382,6 @@ protected:
             if (i >= _word_freq.size()) i = _word_freq.size() - 1;
         }
     }
-private:
     /**
      * @warning local_keys, word_freq, wordids should be consitant with each other
      */
@@ -401,7 +412,7 @@ struct Error {
         return error;
     }
 };
-
+template <typename MiniBatchT>
 class Word2Vec {
 public:
     Word2Vec (const std::string& path, int niters) :
@@ -483,7 +494,7 @@ public:
 
 protected:
     void learn_instance (Instance &ins, Vec& neu1, Vec& neu1e) noexcept {
-        neu1.clear(); neu1e.clear();
+        //neu1.clear(); neu1e.clear();
         int a, c, b = global_random()() % _window;
         int sent_length = ins.words.size();
         int pos = 0;
@@ -492,6 +503,7 @@ protected:
         w2v_key_t word, target, last_word;
         for (pos = 0; pos < sent_length; pos ++) {
             word = ins.words[pos];
+            neu1.clear(); neu1e.clear();
             for (a = b; a < _window * 2 + 1 - b; a++) {
                 if (a != _window) {
                     c = pos - _window + a;
@@ -545,7 +557,7 @@ private:
     int _negative;
     std::unordered_set<w2v_key_t> _local_keys;
     float _alpha;   // learning rate
-    MiniBatch _minibatch;
+    MiniBatchT _minibatch;
     Error _error;
 };  // end class Word2Vec
 

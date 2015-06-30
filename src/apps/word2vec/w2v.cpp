@@ -41,7 +41,7 @@ int main(int argc, char* argv[]) {
     Cluster<ClusterWorker, server_t, w2v_key_t> cluster;
     cluster.initialize();
 
-    Word2Vec w2v(data_path, niters);
+    Word2Vec<MiniBatch> w2v(data_path, niters);
     w2v.train();
     swift_snails::format_string(output_path, "-%d.txt", global_mpi().rank());
     RAW_LOG_WARNING ("server output parameter to %s", output_path.c_str());
