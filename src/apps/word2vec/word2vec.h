@@ -555,7 +555,7 @@ protected:
             }
         }
     }
-private:
+
     // dataset path
     std::string _path;
     int _batchsize; 

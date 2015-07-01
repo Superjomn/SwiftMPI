@@ -13,15 +13,16 @@ public:
      * @brief gather wordids and sentids
      * @warning _local_keys = wordids + sentids
      */
-    size_t gather_keys (FILE* file, int minibatch = 0) noexcept {
+    size_t gather_keys (FILE* file, int minibatch = 0) {
+        RAW_LOG_INFO ("doc2vec to gather keys ...");
         long cur_pos = ftell(file);
         std::atomic<int> line_count {0};
         LineFileReader line_reader;
         std::mutex file_mut;
-        SpinLock spinlock1, spinlock2;
+        SpinLock spinlock1, spinlock2, spinlock3;
         _local_keys.clear();
         AsynExec::task_t handler = [this, &line_count, &line_reader,
-            &file_mut, &spinlock1, &spinlock2, minibatch, &file
+            &file_mut, &spinlock1, &spinlock2, &spinlock3, minibatch, &file
         ] {
             char *cline = nullptr;
             std::string line;
@@ -38,9 +39,11 @@ public:
                 }
                 // get sentence id
                 ins.sent_id = hash_fn(line.c_str());
-                _sentids.insert(ins.sent_id);
-                // treat sent_id as special word_id
-                _local_keys.insert(ins.sent_id);
+                { std::lock_guard<SpinLock> lk(spinlock1);
+                    _sentids.insert(ins.sent_id);
+                    // treat sent_id as special word_id
+                    _local_keys.insert(ins.sent_id);
+                }
                 // gent word ids
                 parse_res = parse_instance(line, ins);
                 if (! parse_res) continue;
@@ -70,6 +73,7 @@ public:
      * just push sentence vector's gradient
      */
     void push() noexcept {
+        RAW_LOG_INFO ("push %lu sentids", _sentids.size());
         _push_access.push_with_barrier(_sentids, _param_cache);
         clear();
     }
@@ -86,8 +90,10 @@ public:
     { }
 
     void load_param (const std::string &path) {
+        LOG (INFO) << "... load_param";
         global_server<server_t>().load(path);
         global_mpi().barrier();
+        LOG (INFO) << ">>> load_param\t" << path;
     }
 
 protected:
@@ -116,6 +122,8 @@ protected:
                     neu1 += syn0_lastword;
                 }
             }
+
+            neu1 /= ( _window * 2 + 1 - b - b + 1);
             for (int d = 0; d < _negative + 1; d++) {
                 if (d == 0) {
                     target = word;
@@ -136,7 +144,7 @@ protected:
                 else g = (label - exptable(f)) * _alpha;
                 _error.accu(10000 * g * g);
                 neu1e += g * syn1neg_target;
-                _minibatch.param().grads()[target].accu_h(g * neu1);
+                //_minibatch.param().grads()[target].accu_h(g * neu1);
             }
             // update sentence vector
             _minibatch.param().grads()[ins.sent_id].accu_v(neu1e);
@@ -154,18 +162,6 @@ protected:
         }
     }
 
-private:
-    // dataset path
-    std::string _path;
-    int _batchsize; 
-    int _nthreads;  
-    int _niters;
-    int _window;
-    int _negative;
-    std::unordered_set<w2v_key_t> _local_keys;
-    float _alpha;   // learning rate
-    MiniBatch _minibatch;
-    Error _error;
 };  // end class Word2Vec
 
 using namespace std;
@@ -215,6 +211,7 @@ int main(int argc, char* argv[]) {
     Doc2Vec d2v(data_path, niters);
     LOG (WARNING) << "... loading word vectors";
     d2v.load_param(word_vec_path);
+    LOG (WARNING) << "... to train";
     d2v.train();
     swift_snails::format_string(output_path, "-%d.txt", global_mpi().rank());
     RAW_LOG_WARNING ("server output parameter to %s", output_path.c_str());
