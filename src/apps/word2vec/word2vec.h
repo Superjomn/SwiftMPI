@@ -17,6 +17,11 @@ int len_vec() {
     }
     return _len_vec;
 }
+
+bool& to_output_sent() {
+    static bool _status = false;
+    return _status;
+}
 /**
  * words will be std::hash-ed to size_t
  */
@@ -87,10 +92,12 @@ struct WLocalGrad {
 };
 
 std::ostream& operator<< (std::ostream& os, const WParam &param) {
-    for (int i = 0; i < len_vec() - 1; i++) os << param.v[i] << " ";
-    os << param.v[len_vec() - 1] << "\t";
-    for (int i = 0; i < len_vec() - 1; i++) os << param.h[i] << " ";
-    os << param.h[len_vec() - 1];
+    if (param.is_sent == to_output_sent()) {
+        for (int i = 0; i < len_vec() - 1; i++) os << param.v[i] << " ";
+        os << param.v[len_vec() - 1] << "\t";
+        for (int i = 0; i < len_vec() - 1; i++) os << param.h[i] << " ";
+        os << param.h[len_vec() - 1];
+    }
     return os;
 }
 std::istream& operator>> (std::istream& is, WParam &param) {

@@ -1,6 +1,7 @@
 #include "../../swiftmpi.h"
 #include "../word2vec/word2vec.h"
 
+
 class SentMiniBatch : public MiniBatch {
 public:
     virtual void clear() noexcept {
@@ -74,6 +75,8 @@ public:
      */
     void push() noexcept {
         RAW_LOG_INFO ("push %lu sentids", _sentids.size());
+        auto& grads = param().grads();
+        for (auto id : _sentids) grads[id].is_sent = true;
         _push_access.push_with_barrier(_sentids, _param_cache);
         clear();
     }
@@ -87,7 +90,9 @@ class Doc2Vec : public Word2Vec<SentMiniBatch> {
 public:
     Doc2Vec (const std::string& path, int niters) :
         Word2Vec (path, niters)
-    { }
+    { 
+        to_output_sent() = true;
+    }
 
     void load_param (const std::string &path) {
         LOG (INFO) << "... load_param";
