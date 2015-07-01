@@ -286,9 +286,9 @@ public:
     }
 
     void pull() {
-        LOG (INFO) << "... pull()";
+        //LOG (INFO) << "... pull()";
         _pull_access.pull_with_barrier(_local_keys, _param_cache);
-        LOG (INFO) << ">>> pull()";
+        //LOG (INFO) << ">>> pull()";
         gen_unigram_table();
     }
     /**
@@ -453,7 +453,6 @@ public:
 
         float error;
         for (int i = 0; i < _niters; i++) {
-            LOG (INFO) << "iter\t" << i;
             error = train_iter(_path);
             LOG (INFO) << "iter\t" << i << "\terror:\t" << error;
         }

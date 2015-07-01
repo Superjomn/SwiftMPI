@@ -15,7 +15,7 @@ public:
      * @warning _local_keys = wordids + sentids
      */
     size_t gather_keys (FILE* file, int minibatch = 0) {
-        RAW_LOG_INFO ("doc2vec to gather keys ...");
+        //RAW_LOG_INFO ("doc2vec to gather keys ...");
         long cur_pos = ftell(file);
         std::atomic<int> line_count {0};
         LineFileReader line_reader;
@@ -98,7 +98,7 @@ public:
         LOG (INFO) << "... load_param";
         global_server<server_t>().load(path);
         global_mpi().barrier();
-        LOG (INFO) << ">>> load_param\t" << path;
+        //LOG (INFO) << ">>> load_param\t" << path;
     }
 
 protected:
