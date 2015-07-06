@@ -48,8 +48,7 @@ public:
         return { &worker->channel, 
             [this, worker](channel_t*) {
                 worker->channel.close();
-                //LOG(INFO) << "channel to destroy, worker threads join";
-                LOG(WARNING) << "channel to destroy, terminate all threads!";
+                DLOG(WARNING) << "channel to destroy, terminate all threads!";
                 for (auto& t : worker->threads) {
                     t.join();
                     //t.terminate();
@@ -86,7 +85,7 @@ private:
 
             alive_workers_num ++;
 
-            LOG(INFO) << "thread " << std::this_thread::get_id() << " started";
+            DLOG(INFO) << "thread " << std::this_thread::get_id() << " started";
             while ((valid = channel.pop(func))) {
                 //RAW_DLOG(INFO,  "%lu job's valid: %d", std::this_thread::get_id(), valid);
                 if(!valid) {
@@ -96,8 +95,8 @@ private:
             }
 
             alive_workers_num --;
-            LOG(INFO) << "thread " << std::this_thread::get_id() << " exit";
-            RAW_LOG(INFO, "%d threads still alive", int(alive_workers_num));
+            //LOG(INFO) << "thread " << std::this_thread::get_id() << " exit";
+            //RAW_LOG(INFO, "%d threads still alive", int(alive_workers_num));
         }
         ~MultiWorker() {
             for( auto &t : threads) {

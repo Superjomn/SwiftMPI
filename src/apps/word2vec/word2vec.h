@@ -191,6 +191,10 @@ struct Instance {
 inline w2v_key_t hash_fn(const char* key) noexcept {
     return BKDRHash<w2v_key_t> (key);
 }
+
+inline w2v_key_t hash_fn2(const char* key) noexcept {
+    return std::atoi(key);
+}
 /**
  * parse line to instance
  *
@@ -200,10 +204,10 @@ bool parse_instance(const std::string &line, Instance &ins) noexcept {
     static int min_length = 0;
     if (min_length == 0) 
         min_length = global_config().get("word2vec", "min_sentence_length").to_int32();
-    ins.sent_id = hash_fn(line.c_str());
+    ins.sent_id = hash_fn2(line.c_str());
     auto words = std::move(swift_snails::split(line, " "));
     for (const auto& word : words) {
-        ins.words.push_back(hash_fn(word.c_str()));
+        ins.words.push_back(hash_fn2(word.c_str()));
     }
     return ins.words.size() >=  min_length;
 }
@@ -303,14 +307,15 @@ public:
      *
      * @param minibatch size of the minibatch
      */
-    size_t gather_keys (FILE* file, int minibatch = 0) {
+    size_t gather_keys (FILE* file, int &line_id, int minibatch = 0) {
         long cur_pos = ftell(file);
-        std::atomic<int> line_count {0};
+        int line_count {0};
+        line_id = 0;
         LineFileReader line_reader;
         std::mutex file_mut;
         SpinLock spinlock1, spinlock2;
         _local_keys.clear();
-        AsynExec::task_t handler = [this, &line_count, &line_reader,
+        AsynExec::task_t handler = [this, &line_count, &line_id, &line_reader,
             &file_mut, &spinlock1, &spinlock2, minibatch, &file
         ] {
             char *cline = nullptr;
@@ -329,30 +334,36 @@ public:
                 parse_res = parse_instance(line, ins);
                 if (! parse_res) continue;
                 for( const auto& item : ins.words) {
-                    { std::lock_guard<SpinLock> lk(spinlock1);
+                    _num_words ++;
+                    word_freq_it = _word_freq.find(item);
+                    if (word_freq_it != _word_freq.end()) 
+                        word_freq_it->second ++;
+                    else {
+                         std::lock_guard<SpinLock> lk(spinlock2);
+                        _word_freq[item] = 1;
                         _local_keys.insert(item);
-                    }
-                    { std::lock_guard<SpinLock> lk(spinlock2);
-                        word_freq_it = _word_freq.find(item);
-                        if (word_freq_it != _word_freq.end()) 
-                            word_freq_it->second ++;
-                        else 
-                            _word_freq[item] = 1;
                     }
                 }
                 line_count ++;
+                line_id ++;
+                if (line_id % _minibatch == 0) {
+                }
                 if(minibatch > 0 &&  line_count > minibatch) break;
                 if (feof(file)) break;
             }
         };
         async_exec(_nthreads, handler, global_channel());
-        RAW_LOG(INFO, "collect %d keys", _local_keys.size());
+        RAW_LOG(INFO, "collect %lu keys", _local_keys.size());
         fseek(file, cur_pos, SEEK_SET);
         return _local_keys.size();
     }
 
     param_cache_t& param() noexcept {
         return _param_cache;
+    }
+
+    const std::map<w2v_key_t, int>& word_freq() noexcept {
+        return _word_freq;
     }
 
     w2v_key_t* table() noexcept {
@@ -364,12 +375,17 @@ public:
         _word_freq.clear();
         _wordids.clear();
     }
+
+    size_t num_words () noexcept {
+        return _num_words;
+    }
+
 protected:
     /**
      * generate hashtable for Word2Vec's negative-samping
      */
     void gen_unigram_table() {
-		LOG(INFO)<< "... init_unigram_table";
+		//LOG(INFO)<< "... init_unigram_table";
 		CHECK_GT(_word_freq.size(), 0) << "word_freq should be inited before";
         // init wordids
         for (const auto& item : _word_freq) {
@@ -405,6 +421,8 @@ protected:
     param_cache_t _param_cache;
     int _minibatch = 0; 
     int _nthreads = 0;  
+    // cache number of words in this minibatch
+    size_t _num_words = 0;
     w2v_key_t *_table = nullptr;
 };  // end class MiniBatch
 
@@ -432,6 +450,7 @@ public:
         _nthreads (global_config().get("worker", "nthreads").to_int32()),
         _window (global_config().get("word2vec", "window").to_int32()),
         _negative (global_config().get("word2vec", "negative").to_int32()),
+        _sample (global_config().get("word2vec", "sample").to_float()),
         _alpha (global_config().get("word2vec", "learning_rate").to_float()),
         _niters (niters)
     {
@@ -446,7 +465,10 @@ public:
         LOG (WARNING) << "init train ...";
         LOG (INFO) << "first pull to init parameter";
         FILE* file = fopen(_path.c_str(), "rb");
-        if (_minibatch.gather_keys(file) < 5) return;
+        LOG (INFO) << "to gather keys";
+        if (_minibatch.gather_keys(file, nlines) < 5) return;
+        LOG (INFO) << "local data has " << nlines << " lines";
+        LOG (INFO) << "to pull request";
         _minibatch.pull();
         global_mpi().barrier();
         _minibatch.clear();
@@ -464,11 +486,12 @@ public:
         FILE* file = fopen(_path.c_str(), "rb");
         std::mutex file_mut;
         std::atomic<int> line_count{0};
+        int line_id {0}, _line_id;
         LineFileReader line_reader(file);
         SpinLock spinlock;
         Instance ins;
         AsynExec::task_t handler = [this,
-            &file, &file_mut, &line_reader,
+            &file, &file_mut, &line_reader, &line_id, 
             &line_count, &spinlock
             ] {
                 std::string line;
@@ -486,17 +509,20 @@ public:
                     Vec neu1(len_vec()), neu1e(len_vec());
                     learn_instance(ins, neu1, neu1e);
                     line_count ++;
+                    line_id ++;
                     //LOG (INFO) << "line count:\t" << int(line_count);
-                    if (line_count > _batchsize) break;
+                    if (line_id % _batchsize == 0) 
+                        RAW_LOG_INFO( "train status:\t%f\t%d/%d", (float)line_id/nlines, line_id, nlines);
+                    if (line_count > _batchsize) break; 
                     if (feof(file)) break;
                 }
         };
         while (true) {
             line_count = 0;
-            if (_minibatch.gather_keys(file, _batchsize) < 5) break;
+            if (_minibatch.gather_keys(file, _line_id, _batchsize) < 5) break;
             _minibatch.pull();
             async_exec(_nthreads, handler, global_channel());
-            LOG (INFO) << "... push()";
+            //LOG (INFO) << "... push()";
             _minibatch.push();
         }
         fclose(file);
@@ -515,6 +541,7 @@ protected:
 
         for (pos = 0; pos < sent_length; pos ++) {
             word = ins.words[pos];
+            if (! to_sample(word)) continue;
             neu1.clear(); neu1e.clear();
             b = global_random()() % _window;
 
@@ -561,6 +588,20 @@ protected:
             }
         }
     }
+    /**
+     * @brief negative sampling
+     *
+     * @param train_words number of words in current minibatch
+     */
+    bool to_sample(w2v_key_t word) noexcept {
+        if (_sample < 0) return true;         
+        int train_words = _minibatch.num_words();
+        float freq = float(_minibatch.word_freq().find(word)->second) / train_words;
+        //RAW_LOG (INFO, "freq:\t%f", freq);
+        float ran = 1 - sqrt(_sample / freq);
+        //RAW_LOG (INFO, "random:\t%f", ran);
+        return global_random().gen_float() > ran;
+    }
 
     // dataset path
     std::string _path;
@@ -569,6 +610,8 @@ protected:
     int _niters;
     int _window;
     int _negative;
+    float _sample;
+    int nlines;
     std::unordered_set<w2v_key_t> _local_keys;
     float _alpha;   // learning rate
     MiniBatchT _minibatch;
