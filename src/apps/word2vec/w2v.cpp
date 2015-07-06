@@ -1,4 +1,5 @@
-#include "word2vec.h"
+//#include "word2vec.h"
+#include "word2vec_global.h"
 //#include <gflags/gflags.h>
 using namespace std;
 int main(int argc, char* argv[]) {
