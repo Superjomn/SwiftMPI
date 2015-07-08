@@ -1,6 +1,6 @@
 #include <functional>
 #include "../../swiftmpi.h"
-#include "../word2vec/word2vec_global.h"
+#include "../word2vec/word2vec.h"
 using namespace swift_snails;
 
 
@@ -8,20 +8,14 @@ class WordMiniBatch : public MiniBatch {
 public:
     WordMiniBatch() 
     { }
-    WordMiniBatch(param_cache_t *param) :
-        MiniBatch(param)
-    { }
-
     void push() = delete;
     //size_t gather_keys (FILE* file, int &line_id, int minibatch, int nthreads=0) = delete;
 };
 
 
-class Sent2Vec : public VirtualObject {
+class Sent2Vec {
 public:
-    Sent2Vec(const std::string& path, const std::string& out_path, int niters) :
-        _path (path),
-        _out_path (out_path), 
+    Sent2Vec (const std::string& path, const std::string& out_path, int niters) :
         _batchsize (global_config().get("worker", "minibatch").to_int32()),
         _nthreads (global_config().get("worker", "nthreads").to_int32()),
         _window (global_config().get("word2vec", "window").to_int32()),
@@ -30,11 +24,12 @@ public:
         _niters (niters)
     {
         _path = path; 
+        _out_path = out_path;
         CHECK_GT(_path.size(), 0);
         CHECK_GT(_batchsize, 0);
         CHECK_GT(_nthreads, 0);
         CHECK_GT(_niters, 0);
-        _word_minibatch.init_param(&_word_param_cache);
+        //_word_minibatch.init_param(&_word_param_cache);
     }
 
     void load_word_vector (const std::string &path) {
@@ -43,44 +38,37 @@ public:
     }
 
     void train() {
-        LOG (INFO) << "first pull to init local word paramters";
-        FILE* file = fopen(_path.c_str(), "rb");
-        std::ofstream ofile(_out_path.c_str());
-        nlines = 0;
-        if (_word_minibatch.gather_keys(file, nlines) < 5) return;
-        LOG (INFO) << "local data has " << nlines << " lines\t" << train_words << " words";
-        LOG (INFO) << "to pull ...";
-        _word_minibatch.pull();
-        _word_minibatch.param().grads().clear();
-        CHECK (_word_minibatch.param().grads().empty()) << "grads is not needed";
-        global_mpi().barrier();
         // TODO begin to learn sentence vector
         std::mutex file_mut;
         std::mutex out_file_mut;
         std::atomic<int> line_count{0};
         int line_id {0}, _line_id;
-        LineFileReader line_reader(file);
         SpinLock spinlock;
         Instance ins;
+        FILE* file = fopen(_path.c_str(), "rb");
+        std::ofstream ofile(_out_path.c_str());
 
         AsynExec::task_t handler = [this,
-            &file, &file_mut, &ofile, &out_file_mut, &line_reader, &line_id, 
+            &file, &file_mut, &ofile, &out_file_mut, &line_id, 
             &line_count, &spinlock
             ] {
                 std::string line;
                 char* cline;
                 Instance ins;
                 bool parse_res;
+                LineFileReader line_reader(file);
                 Vec neu1(len_vec()), neu1e(len_vec());
                 Vec sent_vec(len_vec());
                 float error;
                 while (true) {
+                    if (line_count > _batchsize) break; 
                     if (feof(file)) break;
                     { std::lock_guard<std::mutex> lk(file_mut);
                         cline = line_reader.getline();
                         if (! cline) continue;
-                        line = std::move(std::string(cline));
                     }
+                    line_count ++;
+                    line = std::move(std::string(cline));
                     parse_res = parse_instance(line, ins);
                     if (! parse_res) continue;
 
@@ -95,15 +83,24 @@ public:
                         ofile << sent_id << "\t" << sent_vec << std::endl;
                     }
                     if (++ line_id % _batchsize == 0) 
-                        RAW_LOG_INFO( "train status:\t%f\t%d/%d", (float)line_id/nlines, line_id, nlines);
+                        RAW_LOG_INFO( "training process: %d", line_id);
+                    if (line_count > _batchsize) break; 
                     if (feof(file)) break;
                 }
         };
 
-        async_exec(_nthreads, handler, global_channel());
-
+        while (true) {
+            line_count = 0;
+            if (_word_minibatch.gather_keys(file, _line_id, _batchsize) < 5) break;
+            _word_minibatch.pull();
+            _word_minibatch.param().grads().clear();
+            async_exec(_nthreads, handler, global_channel());
+            _word_minibatch.clear();
+        }
+        fclose(file);
         LOG (WARNING) << "error:\t" << _error.norm();
     }
+
 
 protected:
     float learn_instance (Instance &ins, Vec& neu1, Vec& neu1e, Vec& sent_vec) noexcept {
@@ -152,6 +149,8 @@ protected:
                 neu1e += g * syn1neg_target;
                 //_word_minibatch.param().grads()[target].accu_h(g * neu1);
             }
+            sent_vec += _alpha * neu1e;
+            /*
             // hidden -> in
             for (a = b; a < _window * 2 + 1 - b; a++) {
                 if (a != _window) {
@@ -163,25 +162,24 @@ protected:
                     sent_vec += _alpha * neu1e;
                 }
             }
+            */
         }
         return g * g;
     }
 
-private:
     // dataset path
-    std::string _path;
-    std::string _out_path;
+    std::string _path, _out_path;
+    int _batchsize; 
     int _nthreads;  
-    float _alpha;
-    int _batchsize;
     int _niters;
-    int nlines;
     int _window;
     int _negative;
-    WordMiniBatch           _word_minibatch;
-    MiniBatch::param_cache_t _word_param_cache;
+    int nlines = 0;
+    std::unordered_set<w2v_key_t> _local_keys;
+    float _alpha;   // learning rate
+    WordMiniBatch _word_minibatch;
     Error _error;
-};
+};  // end class Word2Vec
 
 
 using namespace std;
@@ -237,3 +235,4 @@ int main(int argc, char* argv[]) {
     LOG(WARNING) << "cluster exit.";
     return 0;
 }
+

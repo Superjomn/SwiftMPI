@@ -1,5 +1,6 @@
-CXX=../../../third/local/bin/mpicxx
-#MPICXX=g++ -I/home/chunwei/swiftmpi/third/openmpi-1.8.5/../local/include -pthread -Wl,-rpath -Wl,/home/chunwei/swiftmpi/third/openmpi-1.8.5/../local/lib -Wl,--enable-new-dtags -L/home/chunwei/swiftmpi/third/openmpi-1.8.5/../local/lib -lmpi_cxx -lmpi
+#CXX=../../../third/local/bin/mpicxx
+#CXX=mpicxx
+MPICXX=g++ -I/home/chunwei/swiftmpi/third/openmpi-1.8.5/../local/include -pthread -Wl,-rpath -Wl,/home/chunwei/swiftmpi/third/openmpi-1.8.5/../local/lib -Wl,--enable-new-dtags -L/home/chunwei/swiftmpi/third/openmpi-1.8.5/../local/lib -lmpi_cxx -lmpi
 CC=gcc
 BIN=./bin
 
@@ -12,6 +13,12 @@ THIRD_INCPATH=-isystem $(LOCAL_ROOT)/include \
 
 THIRD_LIB=-L$(LOCAL_ROOT)/lib  
 
+all: word2vec word2vec_local
+
 word2vec : w2v.cpp
 	mkdir -p $(BIN)
-	mpicxx w2v.cpp $(THIRD_INCPATH)  -Xlinker $(THIRD_LIB)  $(CXXFLAGS) -o $(BIN)/word2vec
+	$(MPICXX) w2v.cpp $(THIRD_INCPATH)  -Xlinker $(THIRD_LIB)  $(CXXFLAGS) -o $(BIN)/word2vec
+
+word2vec_local : w2v_local.cpp
+	mkdir -p $(BIN)
+	$(MPICXX) w2v_local.cpp $(THIRD_INCPATH)  -Xlinker $(THIRD_LIB)  $(CXXFLAGS) -o $(BIN)/word2vec_local

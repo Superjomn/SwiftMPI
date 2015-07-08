@@ -327,14 +327,14 @@ public:
         long cur_pos = ftell(file);
         int line_count {0};
         line_id = 0;
-        LineFileReader line_reader;
         std::mutex file_mut;
         SpinLock spinlock1, spinlock2;
         _local_keys.clear();
         nthreads = nthreads == 0 ? _nthreads : nthreads;
-        AsynExec::task_t handler = [this, &line_count, &line_id, &line_reader,
+        AsynExec::task_t handler = [this, &line_count, &line_id,
             &file_mut, &spinlock1, &spinlock2, minibatch, &file
         ] {
+            LineFileReader line_reader;
             char *cline = nullptr;
             std::string line;
             Instance ins;
@@ -345,8 +345,8 @@ public:
                 { std::lock_guard<std::mutex> lk(file_mut);
                     cline = line_reader.getline(file);
                     if (! cline) continue;
-                    line = std::move(std::string(cline));
                 }
+                line = std::move(std::string(cline));
                 parse_res = parse_instance(line, ins);
                 if (! parse_res) continue;
                 for( const auto& item : ins.words) {
@@ -371,13 +371,13 @@ public:
         long cur_pos = ftell(file);
         int line_count {0};
         line_id = 0;
-        LineFileReader line_reader;
         std::mutex file_mut;
         SpinLock spinlock1, spinlock2;
         _local_keys.clear();
-        AsynExec::task_t handler = [this, &line_count, &line_id, &line_reader,
+        AsynExec::task_t handler = [this, &line_count, &line_id,
             &file_mut, &spinlock1, &spinlock2, &file
         ] {
+            LineFileReader line_reader;
             char *cline = nullptr;
             std::string line;
             Instance ins;
@@ -389,8 +389,8 @@ public:
                 { std::lock_guard<std::mutex> lk(file_mut);
                     cline = line_reader.getline(file);
                     if (! cline) continue;
-                    line = std::move(std::string(cline));
                 }
+                line = std::move(std::string(cline));
                 parse_res = parse_instance(line, ins);
                 if (! parse_res) continue;
                 train_words += ins.words.size();

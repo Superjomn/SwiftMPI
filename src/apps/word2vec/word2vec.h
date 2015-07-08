@@ -179,12 +179,9 @@ const float WPushAccessMethod::fudge_factor = 1e-6;
 struct Instance {
     std::vector<w2v_key_t> words;
 
-    w2v_key_t sent_id;
-
     void clear() {
         // clear data but not free memory
         words.clear();
-        sent_id = -1;
     }
 };  // end struct Instance
 
@@ -201,10 +198,11 @@ inline w2v_key_t hash_fn2(const char* key) noexcept {
  * each word will be hashed to a size_t
  */
 bool parse_instance(const std::string &line, Instance &ins) noexcept {
+    ins.clear();
     static int min_length = 0;
     if (min_length == 0) 
         min_length = global_config().get("word2vec", "min_sentence_length").to_int32();
-    ins.sent_id = hash_fn2(line.c_str());
+    //ins.sent_id = hash_fn2(line.c_str());
     auto words = std::move(swift_snails::split(line, " "));
     for (const auto& word : words) {
         ins.words.push_back(hash_fn2(word.c_str()));
@@ -291,6 +289,8 @@ public:
 
     void pull() {
         //LOG (INFO) << "... pull()";
+        LOG (INFO) << "... pull " << _local_keys.size() << " keys";
+        _param_cache.init_keys(_local_keys);
         _pull_access.pull_with_barrier(_local_keys, _param_cache);
         //LOG (INFO) << ">>> pull()";
         gen_unigram_table();
@@ -311,16 +311,16 @@ public:
         long cur_pos = ftell(file);
         int line_count {0};
         line_id = 0;
-        LineFileReader line_reader;
         std::mutex file_mut;
         SpinLock spinlock1, spinlock2;
         _local_keys.clear();
-        AsynExec::task_t handler = [this, &line_count, &line_id, &line_reader,
+        AsynExec::task_t handler = [this, &line_count, &line_id,
             &file_mut, &spinlock1, &spinlock2, minibatch, &file
         ] {
             char *cline = nullptr;
             std::string line;
             Instance ins;
+            LineFileReader line_reader;
             std::map<w2v_key_t, int>::iterator word_freq_it;
             bool parse_res;
             while (true) {
@@ -374,6 +374,7 @@ public:
         _local_keys.clear();
         _word_freq.clear();
         _wordids.clear();
+        _param_cache.clear();
     }
 
     size_t num_words () noexcept {
