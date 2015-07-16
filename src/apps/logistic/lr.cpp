@@ -94,6 +94,7 @@ std::ostream& operator<< (std::ostream &os, const Instance &ins) {
         os << item.first << ":" << item.second << " ";
     }
     os << std::endl;
+    return os;
 }
 
 bool parse_instance2(const std::string &line, Instance &ins) {
