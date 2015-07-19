@@ -76,6 +76,12 @@ public:
     Transfer<ServerWorkerRoute>& transfer() {
         return _transfer;
     }
+    /**
+     * @brief to tell whether local node's Server is valid
+     */
+    bool is_valid() const {
+        return _transfer.client_id() >= 0;
+    }
 
 protected:
     void init_transfer();

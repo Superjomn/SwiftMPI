@@ -25,6 +25,12 @@ public:
         RAW_LOG(WARNING, "     Worker [%d] terminate normally", global_mpi().rank());
         RAW_LOG(WARNING, "########################################");
     }
+    /**
+     * @brief to tell whether local node's Worker is valid
+     */
+    bool is_valid() const {
+        return _transfer.client_id() >= 0;
+    }
 
 protected:
     void init_transfer() {
