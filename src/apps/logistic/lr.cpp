@@ -1,4 +1,3 @@
-#include <gflags/gflags.h>
 #include "../../swiftmpi.h"
 using namespace std;
 using namespace swift_snails;
@@ -385,16 +384,22 @@ private:
     std::shared_ptr<AsynExec::channel_t> _async_channel;
 };
 
-// gflags
-DEFINE_string  (mode, "train", "train/predict");
-DEFINE_string (dataset, "data.txt", "path of the dataset");
-DEFINE_string (config, "demo.conf", "path of the config file");
-DEFINE_int32  (niters, 3, "number of iterations (in train mode)");
-DEFINE_string (param_path, "", "path of parameter (in predict mode)");
-DEFINE_string (out_prefix, "lr.pred", "path to output predictions");
 
 int main(int argc, char** argv) {
     GlobalMPI::initialize(argc, argv);
+    fms::CMDLine cmdline(argc, argv);
+    auto C = [&cmdline](const string& key) {
+        return cmdline.getValue(key);
+    };
+    // cmdline args
+    string param_help = cmdline.registerParameter("help",   "this screen");
+    string param_mode = cmdline.registerParameter("mode", "train/predict");
+    string param_dataset = cmdline.registerParameter("dataset", "path of the dataset");
+    string param_config = cmdline.registerParameter("config", "path of the config file");
+    string param_niters = cmdline.registerParameter("niters", "number of iterations (used only in train mode)");
+    string param_param_path = cmdline.registerParameter("param_path", "path of parameter (in predict mode)");
+    string param_out_prefix = cmdline.registerParameter("out_prefix", "path to output predictions");
+    // usage infomation
     std::string usage = "\n";
     usage += "-----------------------------------------------------------------\n";
     usage += "An Implementation of Distributed Logistic Regression Algorithm \nbased on SwiftMPI\n";
@@ -402,32 +407,68 @@ int main(int argc, char** argv) {
     usage += "Author: Chunwei Yan <yanchunwei@outlook.com>\n";
     usage += "\nUsage:\n\n";
     usage += "Train Mode:\n";
-    usage += "    <MPI_ARGS>" + std::string(argv[0]) + " -mode train -config <path> -niters <number> -dataset <path>\n";
+    usage += "    <MPI_ARGS>" + std::string(argv[0]) + " -mode train -config <path> -niters <number> -dataset <path> -out_prefix <path prefix>\n";
     usage += "\nPredict Mode:\n";
     usage += "    <MPI_ARGS>" + std::string(argv[0]) + " -mode predict -config <path> -dataset <path> -param_path <path> -out_prefix <string>";
-    google::SetUsageMessage(usage);
-    google::ParseCommandLineFlags(&argc, &argv, true);
-    // load configs
-    global_config().load_conf(FLAGS_config);
-    global_config().parse();
+    usage += "\n\n";
+    // args check
+    auto miss_param_handler = [&cmdline, &usage] {
+        LOG(ERROR) << "missing parameter";
+        cout << usage << endl;
+        cmdline.print_help();
+    };
+    if (!cmdline.hasParameter(param_mode)) {
+        miss_param_handler();
+        return 0;
+    }
+    bool common_args_check = (
+            !cmdline.hasParameter(param_config) || 
+            !cmdline.hasParameter(param_dataset) 
+        );
+
+    if (C(param_mode) == "train") {
+        if ( common_args_check ||
+            !cmdline.hasParameter(param_niters)
+        ) {
+            miss_param_handler();
+            return 0;
+        }
+    } else if (C(param_mode) == "predict") {
+        if ( common_args_check ||
+            !cmdline.hasParameter(param_param_path) ||
+            !cmdline.hasParameter(param_out_prefix) 
+        ) {
+            miss_param_handler(); 
+            return 0;
+        }
+    } else {
+        miss_param_handler(); 
+        return 0;
+    }
+    if(cmdline.hasParameter(param_help) || argc == 1) {
+        std::cout << usage << std::endl;
+        cmdline.print_help();
+        return 0;
+    }
     // init cluster
     Cluster<ClusterWorker, server_t, lr_key_t> cluster;
     cluster.initialize();
-    LR lr(FLAGS_dataset, FLAGS_niters);
+    LR lr(C(param_dataset), stoi(C(param_niters)));
     // to train
-    if (FLAGS_mode == "train") { 
+    if (C(param_mode) == "train") { 
         lr.train();
         std::string out_param_path = global_config().get("server", "out_param_prefix").to_string();
-        swift_snails::format_string(out_param_path, "-%d.txt", global_mpi().rank());
+        //swift_snails::format_string(out_param_path, "-%d.txt", global_mpi().rank());
+        swift_snails::format_string(out_param_path, ".txt");
         RAW_LOG_WARNING ("server output parameter to %s", out_param_path.c_str());
         cluster.finalize(out_param_path);
 
     // to predict
     } else {
-        CHECK(!FLAGS_param_path.empty()) << "argument [param_path] should be set in predict mode";
-        lr.load_param(FLAGS_param_path);
-        swift_snails::format_string(FLAGS_out_prefix, "-%d.txt", global_mpi().rank());
-        lr.predict(FLAGS_dataset, FLAGS_out_prefix);
+        lr.load_param(C(param_param_path));
+        string out_prefix = C(param_out_prefix);
+        swift_snails::format_string(out_prefix, "-%d.txt", global_mpi().rank());
+        lr.predict(C(param_dataset), C(param_out_prefix));
         cluster.finalize();
     }
     

@@ -16,4 +16,3 @@ Dependency
 * zlib-1.2.8
 * sparsehash-2.0.2
 * openmpi-1.8.5
-* gflags
