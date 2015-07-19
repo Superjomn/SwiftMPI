@@ -28,22 +28,25 @@ public:
     struct Item {
         std::string value;
         Item(const std::string &value) : value(value){ }
-        int to_int32() const {
+        int to_int32() const noexcept {
             CHECK(!value.empty());
             return std::move(stoi(value));
         }
-        float to_float() const {
+        float to_float() const noexcept {
             CHECK(!value.empty());
             return std::move(stof(value));
         }
-        std::string to_string() const {
+        std::string to_string() const noexcept {
             return value;
         }
-        bool to_bool() const {
+        bool to_bool() const noexcept {
             CHECK(!value.empty());
             CHECK(value == "true" || value == "false");
             if(value == "true") return true;
             return false;
+        }
+        bool empty() const noexcept {
+            return value.empty();
         }
     };
     
