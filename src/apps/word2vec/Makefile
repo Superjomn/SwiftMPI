@@ -1,6 +1,7 @@
 #CXX=../../../third/local/bin/mpicxx
 #CXX=mpicxx
-MPICXX=g++ -I/home/chunwei/swiftmpi/third/openmpi-1.8.5/../local/include -pthread -Wl,-rpath -Wl,/home/chunwei/swiftmpi/third/openmpi-1.8.5/../local/lib -Wl,--enable-new-dtags -L/home/chunwei/swiftmpi/third/openmpi-1.8.5/../local/lib -lmpi_cxx -lmpi
+#MPICXX=g++ -I/home/chunwei/swiftmpi/third/openmpi-1.8.5/../local/include -pthread -Wl,-rpath -Wl,/home/chunwei/swiftmpi/third/openmpi-1.8.5/../local/lib -Wl,--enable-new-dtags -L/home/chunwei/swiftmpi/third/openmpi-1.8.5/../local/lib -lmpi_cxx -lmpi
+MPICXX=mpicxx
 CC=gcc
 BIN=./bin
 
